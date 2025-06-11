@@ -1,6 +1,5 @@
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import or_, select
-
+from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.models import User
 
 

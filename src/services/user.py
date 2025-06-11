@@ -1,8 +1,8 @@
 from fastapi import HTTPException, status
-from sqlmodel import or_, select
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.models import User
-from src.schemes.user import UserUpdate
+from src.schemes.user import UserUpdate, UserUpdateAdmin
 from src.utils.dbcheck import (
     check_username_or_email_exists,
 )
@@ -47,7 +47,9 @@ class UserService:
     async def get_user(self, username: str):
         print('username :', username)
         print('username.lower :', username.lower())
-        user = await self.session.get(User, username.lower())
+        # user = await self.session.get(User, username.lower())
+        results = await self.session.exec(select(User).where(User.username == username.lower()))
+        user = results.one()
 
         if not user:
             raise HTTPException(
@@ -64,7 +66,9 @@ class UserService:
         if 'email' in user_data:
             user_data['email'] = user_data['email'].lower()
 
-        db_user = await self.session.get(User, username.lower())
+        # db_user = await self.session.get(User, username.lower())
+        results = await self.session.exec(select(User).where(User.username == username.lower()))
+        db_user = results.one()
 
         if not db_user:
             raise HTTPException(
@@ -84,14 +88,20 @@ class UserService:
                     detail=user_check,
                 )
         if user_data.get('new_password'):
-            if verify_password(user_data.get('old_password'), db_user.hashed_password):
+            old_password = user_data.get('old_password')
+            if not isinstance(old_password, str):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Old password is missing or invalid.',
+                )
+            if verify_password(old_password, db_user.hashed_password):
                 user_data['hashed_password'] = hash_password(user_data['new_password'])
                 del user_data['old_password']
                 del user_data['new_password']
             else:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail='Old password is wrong.',
+                    detail='Old password is not correct.',
                 )
         db_user.sqlmodel_update(user_data)
 
@@ -100,7 +110,7 @@ class UserService:
         await self.session.refresh(db_user)
         return db_user
 
-    async def update_user_admin(self, username: str, user: UserUpdate):
+    async def update_user_admin(self, username: str, user: UserUpdateAdmin):
         user_data = user.model_dump(exclude_unset=True)
         if 'username' in user_data:
             user_data['username'] = user_data['username'].lower()
@@ -108,7 +118,9 @@ class UserService:
         if 'email' in user_data:
             user_data['email'] = user_data['email'].lower()
 
-        db_user = await self.session.get(User, username.lower())
+        # db_user = await self.session.get(User, username.lower())
+        results = await self.session.exec(select(User).where(User.username == username.lower()))
+        db_user = results.one()
 
         if not db_user:
             raise HTTPException(
@@ -139,7 +151,9 @@ class UserService:
         return db_user
 
     async def delete_user(self, username: str):
-        user = await self.session.get(User, username.lower())
+        # user = await self.session.get(User, username.lower())
+        results = await self.session.exec(select(User).where(User.username == username.lower()))
+        user = results.one()
 
         if not user:
             raise HTTPException(
@@ -150,7 +164,9 @@ class UserService:
         await self.session.commit()
 
     async def delete_user_admin(self, username: str):
-        user = await self.session.get(User, username.lower())
+        # user = await self.session.get(User, username.lower())
+        results = await self.session.exec(select(User).where(User.username == username.lower()))
+        user = results.one()
 
         if not user:
             raise HTTPException(

@@ -29,11 +29,15 @@ class AuthService:
         self.session = session
 
     async def login(self, form_data: OAuth2PasswordRequestForm):
-        user_db = await self.session.get(User, form_data.username.lower())
+        # user_db = await self.session.get(User, form_data.username.lower())
+        results = await self.session.exec(select(User).where(User.username == form_data.username.lower()))
+        user_db = results.one()
 
-        if not user_db or not verify_password(
-            form_data.password, user_db.hashed_password
-        ):
+        print('=' * 100)
+        print(user_db)
+        print('=' * 100)
+
+        if not user_db or not verify_password(form_data.password, user_db.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail='Invalid username or password.',
@@ -62,7 +66,7 @@ class AuthService:
             httponly=True,
             secure=True,
             # samesite='Strict',
-            samesite='None',
+            samesite='none',
             max_age=rt_expire_in_seconds,
             path='/auth/refresh',
         )
@@ -72,9 +76,7 @@ class AuthService:
     async def refresh_access_token(self, refresh_payload):
         user_uid = refresh_payload.get('sub')
 
-        results = await self.session.exec(
-            select(User).where(User.uid == uuid.UUID(user_uid))
-        )
+        results = await self.session.exec(select(User).where(User.uid == uuid.UUID(user_uid)))
         user_db = results.first()
 
         if not user_db:
@@ -83,9 +85,7 @@ class AuthService:
                 detail='Refresh token user ID not found.',
             )
 
-        access_token = create_access_token(
-            data={'sub': user_uid}, expires_delta=timedelta(seconds=at_expire_seconds)
-        )
+        access_token = create_access_token(data={'sub': user_uid}, expires_delta=timedelta(seconds=at_expire_seconds))
 
         return AccessTokenResponse(access_token=access_token)
 
@@ -94,9 +94,7 @@ def logout():
     response = JSONResponse(content={'detail': 'Logged out successfully.'})
 
     # Demande au client de supprimer le cookie !!! MEMES PARAMETRES QUE LORS DE LA CREATION !!!
-    response.delete_cookie(
-        key='refreshToken', path='/auth/refresh', secure=True, samesite='None'
-    )
+    response.delete_cookie(key='refreshToken', path='/auth/refresh', secure=True, samesite='none')
     return response
 
 
@@ -112,9 +110,7 @@ async def get_current_user(
     )
 
     try:
-        payload = jwt.decode(
-            token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
-        )
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
 
         # Transforme le token type str en type UUID
         user_uid = uuid.UUID(payload.get('sub'))
@@ -131,14 +127,14 @@ async def get_current_user(
 
         return user_db
 
-    except ExpiredSignatureError:
+    except ExpiredSignatureError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Token expired.',
             headers={'WWW-Authenticate': 'Bearer'},
-        )
-    except InvalidTokenError:
-        raise invalid_token_exception
+        ) from err
+    except InvalidTokenError as err:
+        raise invalid_token_exception from err
 
 
 # Dépendance utilisée dans les routes protégées admin
@@ -153,9 +149,7 @@ async def is_admin(
     )
 
     try:
-        payload = jwt.decode(
-            token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
-        )
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
 
         # Transforme le token type str en type UUID
         user_uid = uuid.UUID(payload.get('sub'))
@@ -177,11 +171,11 @@ async def is_admin(
             )
         return user_db
 
-    except ExpiredSignatureError:
+    except ExpiredSignatureError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Token expired.',
             headers={'WWW-Authenticate': 'Bearer'},
-        )
-    except InvalidTokenError:
-        raise invalid_token_exception
+        ) from err
+    except InvalidTokenError as err:
+        raise invalid_token_exception from err

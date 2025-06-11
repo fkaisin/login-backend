@@ -64,13 +64,13 @@ def decode_refresh_token_from_cookie(request: Request):
 
         return payload
 
-    except ExpiredSignatureError:
+    except ExpiredSignatureError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Expired token signature. Please login.',
-        )
-    except InvalidTokenError:
+        ) from err
+    except InvalidTokenError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Invalid token signature. Please login.',
-        )
+        ) from err
