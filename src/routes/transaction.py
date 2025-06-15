@@ -36,6 +36,13 @@ async def create_transactions(
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    return await TransactionService(session).create_transactions(
-        trx_data, current_user.uid
-    )
+    return await TransactionService(session).create_transactions(trx_data, current_user.uid)
+
+
+@router.delete('/', status_code=status.HTTP_200_OK)
+async def delete_transaction(
+    trx_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    return await TransactionService(session).delete_transaction(trx_id, current_user.uid)

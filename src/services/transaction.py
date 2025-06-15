@@ -1,5 +1,8 @@
+import uuid
+
 from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -24,11 +27,7 @@ class TransactionService:
         result = await self.session.exec(statement)
         user_with_tx = result.one()
         # return user_with_tx.transactions if user_with_tx else []
-        return (
-            sorted(user_with_tx.transactions, key=lambda trx: trx.date, reverse=True)
-            if user_with_tx
-            else []
-        )
+        return sorted(user_with_tx.transactions, key=lambda trx: trx.date, reverse=True) if user_with_tx else []
 
     async def create_transactions(self, trx_data, current_user_uid):
         extra_data = {
@@ -47,3 +46,39 @@ class TransactionService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail='Invalid data: token id not found.',
             ) from err
+
+    async def delete_transaction(self, trx_id, current_user_uid):
+        trx_uid = uuid.UUID(trx_id)
+
+        try:
+            statement = select(Transaction).where(Transaction.id == trx_uid)
+            result = await self.session.exec(statement)
+            trx_to_delete = result.one()
+
+        except NoResultFound:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Transaction not found in DB.')
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Error retrieving transaction: {str(e)}'
+            )
+
+        if trx_to_delete.user_id != current_user_uid:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,  # 403 = interdit
+                detail='You are not authorized to delete this transaction.',
+            )
+
+        try:
+            await self.session.delete(trx_to_delete)
+            await self.session.commit()
+            return JSONResponse(status_code=status.HTTP_200_OK, content={'detail': 'Transaction deleted successfully.'})
+
+        except SQLAlchemyError as e:
+            await self.session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f'Database error while deleting transaction: {str(e)}',
+            )
+        except Exception as e:
+            await self.session.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Unexpected error: {str(e)}')
