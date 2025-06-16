@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
 from sqlmodel import Session, create_engine, delete, select, text
-from src.db.models import Token, Transaction, User
+from src.db.models import SmallToken, Token, Transaction, User
 from src.utils.security import hash_password
 
 sqlite_url = 'sqlite:///./src/db/database.sqlite'
@@ -86,24 +86,24 @@ def resetUsers():
 def resetTokens():
     # response_list = requests.get('https://api.coingecko.com/api/v3/coins/list')
     # coins = response_list.json()
-    with open('./src/tokens.csv', 'rt', encoding='utf-8', newline='') as f:
-        reader = csv.reader(f)
-        headers = next(reader)
-        rows = list(reader)
-    coins = [dict(zip(headers, row)) for row in rows]
+    # with open('./src/tokens.csv', 'rt', encoding='utf-8', newline='') as f:
+    #     reader = csv.reader(f)
+    #     headers = next(reader)
+    #     rows = list(reader)
+    # coins = [dict(zip(headers, row)) for row in rows]
 
     with Session(engine) as session:
-        session.exec(delete(Token))
+        # session.exec(delete(Token))
 
-        for coin in coins:
-            session.add(
-                Token(cg_id=coin['cg_id'], symbol=coin['symbol'], name=coin['name'])
-            )
+        # for coin in coins:
+        #     session.add(
+        #         Token(cg_id=coin['cg_id'], symbol=coin['symbol'], name=coin['name'])
+        #     )
 
-        session.add(Token(cg_id='fiat_eur', symbol='EUR', name='Euro'))
-        session.add(Token(cg_id='fiat_usd', symbol='USD', name='Dollar US'))
-        session.add(Token(cg_id='fiat_cad', symbol='CAD', name='Dollar CA'))
-        session.add(Token(cg_id='fiat_chf', symbol='CHF', name='Franc suisse'))
+        session.add(Token(cg_id='fiat_eur', symbol='EUR', name='Euro', price=1))
+        session.add(Token(cg_id='fiat_usd', symbol='USD', name='Dollar US', price=1))
+        session.add(Token(cg_id='fiat_cad', symbol='CAD', name='Dollar CA', price=1))
+        session.add(Token(cg_id='fiat_chf', symbol='CHF', name='Franc suisse', price=1))
         session.commit()
 
 
@@ -156,14 +156,14 @@ def assign_transactions_to_ariane():
 
 def test_function():
     with Session(engine) as session:
-        btc = session.get(Token, 'bitcoin')
-        session.delete(btc)
+        rvst_token = SmallToken(id='htx-dao')
+        session.add(rvst_token)
         session.commit()
 
 
 if __name__ == '__main__':
-    resetUsers()
-    resetTokens()
+    # resetUsers()
+    # resetTokens()
     resetTransactions()
     # assign_transactions_to_ariane()
     # test_function()

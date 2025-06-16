@@ -3,5 +3,21 @@ from sqlmodel import Field, SQLModel
 
 class TokenBase(SQLModel):
     cg_id: str = Field(primary_key=True)
-    symbol: str
+    symbol: str = Field(index=True)
     name: str
+    rank: int = 5000
+
+
+class TokenPublicSmall(TokenBase):
+    pass
+
+
+class TokenPublicBig(TokenBase):
+    mcap: int | None = 0
+    image: str | None = None
+    price: float
+    change_1h: float = 0
+    change_24h: float = 0
+    change_7d: float = 0
+    change_30d: float = 0
+    change_1y: float = 0

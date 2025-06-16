@@ -2,9 +2,8 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import Depends
-from sqlmodel import Field, ForeignKey, Relationship, SQLModel
-from src.schemes.token import TokenBase
+from sqlmodel import Field, Relationship, SQLModel
+from src.schemes.token import TokenPublicBig
 from src.schemes.transaction import TransactionBase
 from src.schemes.user import UserBase
 
@@ -24,8 +23,11 @@ class User(UserBase, table=True):
     )
 
 
-class Token(TokenBase, table=True):
+class Token(TokenPublicBig, table=True):
     __tablename__ = 'tokens'  # type: ignore
+    updated_at: datetime = Field(
+        default_factory=datetime.now, sa_column_kwargs={'onupdate': datetime.now}
+    )
 
 
 class Transaction(TransactionBase, table=True):
@@ -62,3 +64,8 @@ class Transaction(TransactionBase, table=True):
             'foreign_keys': lambda: [Transaction.__table__.c.actif_f_id]
         }
     )
+
+
+class SmallToken(SQLModel, table=True):
+    __tablename__ = 'smalltokens'  # type: ignore
+    id: str = Field(primary_key=True)

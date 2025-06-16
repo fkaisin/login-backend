@@ -8,12 +8,16 @@ from src.db.main import engine, init_db
 from src.routes.auth import router as auth_router
 from src.routes.transaction import router as transaction_router
 from src.routes.user import router as user_router
+from src.tasks.tasks import start_periodic_task
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print('=' * 50, ' Starting up... ', '=' * 50)
     await init_db()
+
+    await start_periodic_task()  # Exécute les tâches...
+
     yield
 
     # Exécute le checkpoint WAL pour forcer la sauvegarde de la db
