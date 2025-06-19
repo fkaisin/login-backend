@@ -55,3 +55,11 @@ class Transaction(TransactionBase, table=True):
 class SmallToken(SQLModel, table=True):
   __tablename__ = 'smalltokens'  # type: ignore
   id: str = Field(primary_key=True)
+
+
+class DtaoHistory(SQLModel, table=True):
+  __tablename__ = 'dtaohistory'  # type: ignore
+  uid: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+  netuid: int = Field(index=True)
+  date: datetime = Field(index=True)
+  price: float

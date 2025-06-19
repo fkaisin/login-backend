@@ -14,17 +14,17 @@ from src.tasks.tasks import start_periodic_task
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-  print('=' * 50, ' Starting up... ', '=' * 50)
+  print('=' * 50, ' Starting up  ... ', '=' * 50)
   await init_db()
 
-  await start_periodic_task()  # Exécute les tâches...
+  # await start_periodic_task()  # Exécute les tâches...
 
   yield
 
   # Exécute le checkpoint WAL pour forcer la sauvegarde de la db
   async with engine.begin() as conn:
     await conn.execute(text('PRAGMA wal_checkpoint(FULL);'))
-    print('✅ WAL checkpoint effectué.')
+    # print('✅ WAL checkpoint effectué.')
 
   print('=' * 50, ' Shutting down... ', '=' * 50)
 

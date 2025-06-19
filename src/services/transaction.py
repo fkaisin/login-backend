@@ -3,7 +3,7 @@ import uuid
 from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.models import Token, Transaction, User
@@ -35,11 +35,43 @@ class TransactionService:
       self.session.add(db_trx)
       await self.session.commit()
       await self.session.refresh(db_trx)
-      return db_trx
 
-    except IntegrityError as err:
+      statement = (
+        select(Transaction)
+        .options(
+          joinedload(Transaction.actif_a).load_only(Token.symbol, Token.rank, Token.name),
+          joinedload(Transaction.actif_v).load_only(Token.symbol, Token.rank, Token.name),
+          joinedload(Transaction.actif_f).load_only(Token.symbol, Token.rank, Token.name),
+        )
+        .where(Transaction.id == db_trx.id)
+      )
+
+      result = await self.session.exec(statement)
+      transaction_with_relations = result.first()
+      if not transaction_with_relations:
+        # Pas trouvé après commit, possible erreur logique
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Transaction not found after creation')
+
+      return transaction_with_relations
+
+    except ValueError as ve:
+      # Erreur de validation pydantic (model_validate)
       await self.session.rollback()
-      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid data: token id not found.') from err
+      raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(ve))
+
+    except SQLAlchemyError:
+      # Erreur base de données
+      await self.session.rollback()
+      raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Database error')
+
+    except Exception:
+      # Toute autre erreur inattendue
+      await self.session.rollback()
+      raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Unexpected error')
+
+    except IntegrityError:
+      await self.session.rollback()
+      raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid data: token id not found.')
 
   async def delete_transaction(self, trx_id, current_user_uid):
     trx_uid = uuid.UUID(trx_id)
