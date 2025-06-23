@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.main import get_session
 from src.db.models import User
-from src.schemes.transaction import TransactionCreate, TransactionPublic
+from src.schemes.transaction import TransactionCreate, TransactionPublic, TransactionUpdate
 from src.services.auth import get_current_user
 from src.services.transaction import TransactionService
 
@@ -36,7 +36,21 @@ async def create_transactions(
   session: Annotated[AsyncSession, Depends(get_session)],
   current_user: Annotated[User, Depends(get_current_user)],
 ):
+  print('route ok')
   return await TransactionService(session).create_transactions(trx_data, current_user.uid)
+
+
+@router.patch(
+  '/',
+  status_code=status.HTTP_202_ACCEPTED,
+  response_model=TransactionPublic,
+)
+async def update_transactions(
+  trx_data: TransactionUpdate,
+  session: Annotated[AsyncSession, Depends(get_session)],
+  current_user: Annotated[User, Depends(get_current_user)],
+):
+  return await TransactionService(session).update_transactions(trx_data)
 
 
 @router.delete('/', status_code=status.HTTP_200_OK)
