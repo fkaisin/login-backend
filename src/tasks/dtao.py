@@ -65,16 +65,31 @@ async def fetch_hist_dtao(time):
       fetch_subnet_at_block(subtensor=sub_archive, netuid=netuid, block=max(1, current_block - blocks_back))
       for netuid in all_netuids
     ]
-    subnets_1h = await asyncio.gather(*tasks)
+    subnets_past = await asyncio.gather(*tasks)
 
-    cleaned_subnets = [
-      {
-        'netuid': int(subnet.netuid),
-        'price': clean_price(subnet.price) * tao_price,
-      }
-      for subnet in subnets_1h
-      if subnet is not None
-    ]
+    # cleaned_subnets = [
+    #   {
+    #     'netuid': int(subnet.netuid),
+    #     'price': clean_price(subnet.price) * tao_price,
+    #   }
+    #   for subnet in subnets_past
+    #   if subnet is not None
+    # ]
+    cleaned_subnets = []
+    for subnet in subnets_past:
+      if subnet is None:
+        continue
+      try:
+        cleaned_subnets.append(
+          {
+            'netuid': int(subnet.netuid),
+            'price': clean_price(subnet.price) * tao_price,
+          }
+        )
+      except Exception as e:
+        print(f'Erreur lors du nettoyage du subnet {subnet}: {e}')
+        continue
+
     return cleaned_subnets
 
 
@@ -84,22 +99,44 @@ async def fetch_now_dtao():
 
   try:
     all_subnet_infos = await sub.all_subnets()
-    cleaned_subnets = [
-      {
-        'netuid': int(subnet.netuid),
-        'name': subnet.subnet_name,
-        'price': clean_price(subnet.price) * tao_price,
-        'mcap': int(
-          (clean_price(subnet.alpha_in) + clean_price(subnet.alpha_out)) * clean_price(subnet.price) * tao_price
-        ),
-        'price_in_tao': clean_price(subnet.price),
-        'symbol': subnet.subnet_name.upper(),
-        'cg_id': f'dtao-{subnet.netuid}-{subnet.subnet_name}'.lower(),
-        'image': f'https://taostats.io/images/subnets/{subnet.netuid}.webp?w=32&q=75',
-      }
-      for subnet in all_subnet_infos[1:]
-      if subnet is not None
-    ]
+    # cleaned_subnets = [
+    #   {
+    #     'netuid': int(subnet.netuid),
+    #     'name': subnet.subnet_name,
+    #     'price': clean_price(subnet.price) * tao_price,
+    #     'mcap': int(
+    #       (clean_price(subnet.alpha_in) + clean_price(subnet.alpha_out)) * clean_price(subnet.price) * tao_price
+    #     ),
+    #     'price_in_tao': clean_price(subnet.price),
+    #     'symbol': subnet.subnet_name.upper(),
+    #     'cg_id': f'dtao-{subnet.netuid}-{subnet.subnet_name}'.lower(),
+    #     'image': f'https://taostats.io/images/subnets/{subnet.netuid}.webp?w=32&q=75',
+    #   }
+    #   for subnet in all_subnet_infos[1:]
+    #   if subnet is not None
+    # ]
+    cleaned_subnets = []
+    for subnet in all_subnet_infos[1:]:
+      if subnet is None:
+        continue
+      try:
+        cleaned_subnets.append(
+          {
+            'netuid': int(subnet.netuid),
+            'name': subnet.subnet_name,
+            'price': clean_price(subnet.price) * tao_price,
+            'mcap': int(
+              (clean_price(subnet.alpha_in) + clean_price(subnet.alpha_out)) * clean_price(subnet.price) * tao_price
+            ),
+            'price_in_tao': clean_price(subnet.price),
+            'symbol': subnet.subnet_name.upper(),
+            'cg_id': f'dtao-{subnet.netuid}-{subnet.subnet_name}'.lower(),
+            'image': f'https://taostats.io/images/subnets/{subnet.netuid}.webp?w=32&q=75',
+          }
+        )
+      except Exception as e:
+        print(f'Erreur lors du traitement du subnet {subnet.netuid}: {e}')
+        continue
 
     _1h_subnets = await fetch_hist_dtao('1h')
     _24h_subnets = await fetch_hist_dtao('24h')

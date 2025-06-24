@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -9,17 +11,27 @@ engine = create_async_engine(url=settings.DATABASE_URL, echo=False)
 
 
 async def init_db():
-    # from . import models
+  # from . import models
 
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
-        await conn.execute(text('PRAGMA foreign_keys=ON'))  # for SQLite only
+  async with engine.begin() as conn:
+    await conn.run_sync(SQLModel.metadata.create_all)
+    await conn.execute(text('PRAGMA foreign_keys=ON'))  # for SQLite only
 
 
 async def get_session():
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore
-    async with async_session() as session:  # type: ignore
-        try:
-            yield session
-        finally:
-            await session.close()
+  async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore
+  async with async_session() as session:  # type: ignore
+    try:
+      yield session
+    finally:
+      await session.close()
+
+
+@asynccontextmanager
+async def get_session_with_context_manager():
+  async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore
+  async with async_session() as session:  # type: ignore
+    try:
+      yield session
+    finally:
+      await session.close()

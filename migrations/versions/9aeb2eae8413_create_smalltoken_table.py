@@ -1,8 +1,8 @@
-"""Create small tokens for specific tokens not in top 2000.
+"""Create smalltoken table.
 
-Revision ID: 35436faa3e0f
-Revises: 57ad5aa8922e
-Create Date: 2025-06-16 10:20:36.922963
+Revision ID: 9aeb2eae8413
+Revises: 340c3b17e226
+Create Date: 2025-06-24 15:46:10.748766
 
 """
 from typing import Sequence, Union
@@ -13,8 +13,8 @@ import sqlmodel
 
 
 # revision identifiers, used by Alembic.
-revision: str = '35436faa3e0f'
-down_revision: Union[str, None] = '57ad5aa8922e'
+revision: str = '9aeb2eae8413'
+down_revision: Union[str, None] = '340c3b17e226'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

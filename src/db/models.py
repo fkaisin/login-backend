@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlmodel import Field, Relationship, SQLModel
+from src.schemes.asset import AssetBase
 from src.schemes.token import TokenBase
 from src.schemes.transaction import TransactionBase
 from src.schemes.user import UserBase
@@ -17,10 +18,19 @@ class User(UserBase, table=True):
   updated_at: datetime = Field(default_factory=datetime.now, sa_column_kwargs={'onupdate': datetime.now})
 
   transactions: list['Transaction'] = Relationship(back_populates='user', cascade_delete=True)
+  assets: list['Asset'] = Relationship(back_populates='user', cascade_delete=True)
 
 
 class Token(TokenBase, table=True):
   __tablename__ = 'tokens'  # type: ignore
+  updated_at: datetime = Field(default_factory=datetime.now, sa_column_kwargs={'onupdate': datetime.now})
+
+
+class Asset(AssetBase, table=True):
+  __tablename__ = 'assets'  # type: ignore
+  id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+  token: Token = Relationship()
+  user: User = Relationship(back_populates='assets')
   updated_at: datetime = Field(default_factory=datetime.now, sa_column_kwargs={'onupdate': datetime.now})
 
 
@@ -57,9 +67,9 @@ class SmallToken(SQLModel, table=True):
   id: str = Field(primary_key=True)
 
 
-class DtaoHistory(SQLModel, table=True):
-  __tablename__ = 'dtaohistory'  # type: ignore
-  uid: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-  netuid: int = Field(index=True)
-  date: datetime = Field(index=True)
-  price: float
+# class DtaoHistory(SQLModel, table=True):
+#   __tablename__ = 'dtaohistory'  # type: ignore
+#   uid: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+#   netuid: int = Field(index=True)
+#   date: datetime = Field(index=True)
+#   price: float

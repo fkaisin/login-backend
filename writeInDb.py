@@ -1,9 +1,11 @@
 import csv
+import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
 from sqlmodel import Session, create_engine, delete, select, text
-from src.db.models import SmallToken, Token, Transaction, User
+from src.calculation.db import get_user_token_transactions
+from src.db.models import Asset, SmallToken, Token, Transaction, User
 from src.utils.security import hash_password
 
 sqlite_url = 'sqlite:///./src/db/database.sqlite'
@@ -73,7 +75,7 @@ def resetUsers():
   )
 
   with Session(engine) as session:
-    session.exec(delete(User))
+    session.exec(delete(User))  # type: ignore
 
     session.add(user1)
     session.add(user2)
@@ -84,21 +86,8 @@ def resetUsers():
 
 
 def resetTokens():
-  # response_list = requests.get('https://api.coingecko.com/api/v3/coins/list')
-  # coins = response_list.json()
-  # with open('./src/tokens.csv', 'rt', encoding='utf-8', newline='') as f:
-  #     reader = csv.reader(f)
-  #     headers = next(reader)
-  #     rows = list(reader)
-  # coins = [dict(zip(headers, row)) for row in rows]
-
   with Session(engine) as session:
     # session.exec(delete(Token))
-
-    # for coin in coins:
-    #     session.add(
-    #         Token(cg_id=coin['cg_id'], symbol=coin['symbol'], name=coin['name'])
-    #     )
 
     session.add(Token(cg_id='fiat_eur', symbol='EUR', name='Euro', price=1))
     session.add(Token(cg_id='fiat_usd', symbol='USD', name='Dollar US', price=1))
@@ -116,13 +105,13 @@ def resetTransactions():
 
   with Session(engine) as session:
     fkaisin_uid = session.exec(select(User.uid).where(User.username == 'fkaisin')).one()
-    session.exec(delete(Transaction))
+    session.exec(delete(Transaction))  # type: ignore
 
     for trx in transactions:
-      #   a = session.get(Token, trx['actif_a_id'])
-      #   if not a:
-      #     print('actif manquant dans Token :',trx['actif_a_id'])
-      #     return
+      a = session.get(Token, trx['actif_a_id'])
+      if not a:
+        print('actif manquant dans Token :', trx['actif_a_id'])
+        return
 
       trx['user_id'] = fkaisin_uid
       session.add(Transaction(**trx))
@@ -143,16 +132,30 @@ def assign_transactions_to_ariane():
       session.refresh(r)
 
 
-def test_function():
+def reset_small_tokens():
+  small_token_list = ['swarm-markets', 'revest-finance', 'atlas-navi', 'htx-dao']
+
   with Session(engine) as session:
-    rvst_token = SmallToken(id='swarm-markets')
-    session.add(rvst_token)
+    session.exec(delete(SmallToken))  # type: ignore
+    for st in small_token_list:
+      small_tok = SmallToken(id=st)
+      session.add(small_tok)
+    session.commit()
+
+
+def setAsset():
+  with Session(engine) as session:
+    results = session.exec(select(User.uid).where(User.username == 'fkaisin'))
+    user_uid = results.one()
+    a = Asset(token_id='bitcoin', user_id=user_uid)
+    session.add(a)
     session.commit()
 
 
 if __name__ == '__main__':
-  resetUsers()
+  # resetUsers()
   # resetTokens()
-  resetTransactions()
+  # reset_small_tokens()
+  # resetTransactions()
+  setAsset()
   # assign_transactions_to_ariane()
-  # test_function()
