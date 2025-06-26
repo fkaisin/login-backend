@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 from src.schemes.asset import AssetBase
 from src.schemes.token import TokenBase
 from src.schemes.transaction import TransactionBase
@@ -28,6 +28,7 @@ class Token(TokenBase, table=True):
 
 class Asset(AssetBase, table=True):
   __tablename__ = 'assets'  # type: ignore
+  __table_args__ = (UniqueConstraint('token_id', 'user_id', name='unique_token_user'),)
   id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
   token: Token = Relationship()
   user: User = Relationship(back_populates='assets')

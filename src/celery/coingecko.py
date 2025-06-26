@@ -81,7 +81,7 @@ async def write_to_db(raw_data):
       print('Cryptos écrites dans la DB.')
 
 
-async def get_cg_data():
+async def coingecko_async_task():
   """
   Fonction représentant la tâche à exécuter toutes les 2 minutes.
   Ici, on simule une tâche qui prend entre 5 et 15 secondes.
@@ -154,5 +154,5 @@ async def task_runner_coingecko():
 
     await asyncio.sleep(time_to_wait)
     print('=' * 40, f'COINGECKO START {datetime.now()}', '=' * 36)
-    await get_cg_data()
+    await coingecko_async_task()
     print('=' * 40, f'COINGECKO END {datetime.now()}', '=' * 38)

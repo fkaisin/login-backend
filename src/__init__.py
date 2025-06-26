@@ -4,13 +4,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import text
 
+from src.celery.asyncio_tasks import start_periodic_task
 from src.db.main import engine, init_db
 from src.routes.asset import router as asset_router
 from src.routes.auth import router as auth_router
 from src.routes.token import router as token_router
 from src.routes.transaction import router as transaction_router
 from src.routes.user import router as user_router
-from src.tasks.tasks import start_periodic_task
 
 
 @asynccontextmanager
@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
   print('=' * 50, ' Starting up  ... ', '=' * 50)
   await init_db()
 
-  await start_periodic_task()  # Exécute les tâches...
+  # await start_periodic_task()  # Exécute les tâches...
 
   yield
 

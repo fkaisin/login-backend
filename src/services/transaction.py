@@ -8,6 +8,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.models import Token, Transaction, User
+from src.services.asset import AssetService
 
 
 class TransactionService:
@@ -52,6 +53,8 @@ class TransactionService:
       if not transaction_with_relations:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Transaction not found after creation')
 
+      await self.update_assets_from_transaction(transaction_with_relations, current_user_uid)  # Update Assets
+
       return transaction_with_relations
 
     except ValidationError as ve:
@@ -90,6 +93,7 @@ class TransactionService:
     try:
       await self.session.delete(trx_to_delete)
       await self.session.commit()
+      await self.update_assets_from_transaction(trx_to_delete, current_user_uid)
       return JSONResponse(status_code=status.HTTP_200_OK, content={'detail': 'Transaction deleted successfully.'})
 
     except SQLAlchemyError as e:
@@ -137,6 +141,9 @@ class TransactionService:
 
       result = await self.session.exec(statement)
       transaction_with_relations = result.first()
+
+      await self.update_assets_from_transaction(transaction_with_relations, transaction_with_relations.user_id)
+
       return transaction_with_relations
 
     except ValidationError as ve:
@@ -149,3 +156,18 @@ class TransactionService:
     except Exception as e:
       await self.session.rollback()
       raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Unexpected error: {str(e)}')
+
+  async def update_assets_from_transaction(self, transaction: Transaction, current_user_uid: uuid.UUID):
+    # token_ids = {
+    #   transaction.actif_a_id,
+    #   transaction.actif_v_id,
+    #   transaction.actif_f_id,
+    # } - {None}
+    token_ids = {
+      actif_id
+      for actif_id in {transaction.actif_a_id, transaction.actif_v_id, transaction.actif_f_id}
+      if actif_id is not None and not str(actif_id).startswith('fiat_')
+    }
+
+    if token_ids:
+      await AssetService(self.session).update_specific_assets(current_user_uid, token_ids)

@@ -11,6 +11,7 @@ dependencies = [
     "bcrypt>=4.0.*",
     # "bittensor>=9.7.0",
     # "fastapi[standard]>=0.110.3",
+    "celery[beat,redis]>=5.5.3",
     "fastapi[standard]>=0.115.13",
     "passlib>=1.7.4",
     "pydantic-settings>=2.9.1",

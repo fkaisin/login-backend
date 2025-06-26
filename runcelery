@@ -1,0 +1,4 @@
+uv run celery -A src.celery.tasks worker --loglevel=INFO
+uv run celery -A src.celery.tasks beat --loglevel=INFO
+
+uv run celery -A src.celery.tasks worker -B --loglevel=INFO

@@ -6,6 +6,8 @@ from sqlmodel import func, select
 from src.db.main import get_session
 from src.db.models import Token
 
+# from src.celery.tasks import app
+
 
 async def get_hist_tao_price_from_db(time='now'):
   async for session in get_session():
@@ -67,14 +69,6 @@ async def fetch_hist_dtao(time):
     ]
     subnets_past = await asyncio.gather(*tasks)
 
-    # cleaned_subnets = [
-    #   {
-    #     'netuid': int(subnet.netuid),
-    #     'price': clean_price(subnet.price) * tao_price,
-    #   }
-    #   for subnet in subnets_past
-    #   if subnet is not None
-    # ]
     cleaned_subnets = []
     for subnet in subnets_past:
       if subnet is None:
@@ -99,22 +93,6 @@ async def fetch_now_dtao():
 
   try:
     all_subnet_infos = await sub.all_subnets()
-    # cleaned_subnets = [
-    #   {
-    #     'netuid': int(subnet.netuid),
-    #     'name': subnet.subnet_name,
-    #     'price': clean_price(subnet.price) * tao_price,
-    #     'mcap': int(
-    #       (clean_price(subnet.alpha_in) + clean_price(subnet.alpha_out)) * clean_price(subnet.price) * tao_price
-    #     ),
-    #     'price_in_tao': clean_price(subnet.price),
-    #     'symbol': subnet.subnet_name.upper(),
-    #     'cg_id': f'dtao-{subnet.netuid}-{subnet.subnet_name}'.lower(),
-    #     'image': f'https://taostats.io/images/subnets/{subnet.netuid}.webp?w=32&q=75',
-    #   }
-    #   for subnet in all_subnet_infos[1:]
-    #   if subnet is not None
-    # ]
     cleaned_subnets = []
     for subnet in all_subnet_infos[1:]:
       if subnet is None:
@@ -172,30 +150,6 @@ async def fetch_now_dtao():
   return cleaned_subnets
 
 
-async def main():
-  subnets = await fetch_now_dtao()
-  async for session in get_session():
-    for sub in subnets:
-      db_sub = Token.model_validate(sub)
-      existing_sub = await session.get(Token, db_sub.cg_id)
-      if existing_sub:
-        existing_sub.symbol = db_sub.symbol
-        existing_sub.name = db_sub.name
-        existing_sub.mcap = db_sub.mcap
-        existing_sub.image = db_sub.image
-        existing_sub.price = db_sub.price
-        existing_sub.rank = db_sub.rank
-        existing_sub.change_1h = db_sub.change_1h
-        existing_sub.change_24h = db_sub.change_24h
-        # existing_sub.change_7d = db_sub.change_7d
-        # existing_sub.change_30d = db_sub.change_30d
-        # existing_sub.change_1y = db_sub.change_1y
-        session.add(existing_sub)
-      else:
-        session.add(db_sub)
-      await session.commit()
-
-
 async def get_next_execution_time(now):
   """
   Toutes les 5 minutes.
@@ -218,5 +172,31 @@ async def task_runner_dtao():
 
     await asyncio.sleep(time_to_wait)
     print('=' * 40, f'DTAO START {datetime.now()}', '=' * 41)
-    await main()
+    await dtao_async_task()
     print('=' * 40, f'DTAO END {datetime.now()}', '=' * 43)
+
+
+async def dtao_async_task():
+  subnets = await fetch_now_dtao()
+  async for session in get_session():
+    for sub in subnets:
+      db_sub = Token.model_validate(sub)
+      existing_sub = await session.get(Token, db_sub.cg_id)
+      if existing_sub:
+        existing_sub.symbol = db_sub.symbol
+        existing_sub.name = db_sub.name
+        existing_sub.mcap = db_sub.mcap
+        existing_sub.image = db_sub.image
+        existing_sub.price = db_sub.price
+        existing_sub.rank = db_sub.rank
+        existing_sub.change_1h = db_sub.change_1h
+        existing_sub.change_24h = db_sub.change_24h
+        # existing_sub.change_7d = db_sub.change_7d
+        # existing_sub.change_30d = db_sub.change_30d
+        # existing_sub.change_1y = db_sub.change_1y
+        session.add(existing_sub)
+      else:
+        session.add(db_sub)
+      await session.commit()
+
+    print('>>> [ASYNC] dtao_async exécutée')

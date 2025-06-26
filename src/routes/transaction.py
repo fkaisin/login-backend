@@ -36,7 +36,6 @@ async def create_transactions(
   session: Annotated[AsyncSession, Depends(get_session)],
   current_user: Annotated[User, Depends(get_current_user)],
 ):
-  print('route ok')
   return await TransactionService(session).create_transactions(trx_data, current_user.uid)
 
 

@@ -1,11 +1,13 @@
 import uuid
+from datetime import datetime
 
+from pydantic import computed_field
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import selectinload
 from sqlmodel import Field, SQLModel, select
-from src.calculation.asset import get_asset_mean_buy, get_asset_qty
 from src.db.main import get_session
-from src.schemes.token import TokenBase
+from src.schemes.token import TokenPublicAsset
+from src.utils.asset import get_asset_mean_buy, get_asset_qty
 
 
 class AssetBase(SQLModel):
@@ -14,12 +16,9 @@ class AssetBase(SQLModel):
 
   qty: float = 0
   mean_buy: float = 0
-  value: float = 0
-  pnl_usd: float = 0
-  pnl_percent: float = 0
 
   async def update_asset(self):
-    from src.db.models import Token, User
+    from src.db.models import User
 
     async for session in get_session():
       try:
@@ -32,33 +31,28 @@ class AssetBase(SQLModel):
         self.qty = max(get_asset_qty(token_id=self.token_id, transactions=transactions), 0)
         self.mean_buy = get_asset_mean_buy(token_id=self.token_id, transactions=transactions) if self.qty != 0 else 0
 
-        token = await session.get(Token, self.token_id)
-        self.value = self.qty * token.price
-        self.pnl_usd = self.value - (self.qty * self.mean_buy) if self.qty != 0 else 0
-        self.pnl_percent = self.value / (self.qty * self.mean_buy) - 1 if self.qty != 0 else 0
-
       except NoResultFound:
         raise Exception('User not found in DB.')
-
-  async def refresh_asset(self):
-    from src.db.models import Token
-
-    async for session in get_session():
-      try:
-        token = await session.get(Token, self.token_id)
-        self.value = self.qty * token.price
-        self.pnl_usd = self.value - (self.qty * self.mean_buy) if self.qty != 0 else 0
-        self.pnl_percent = self.value / (self.qty * self.mean_buy) - 1 if self.qty != 0 else 0
-
-      except Exception as err:
-        print('error :', err)
-        raise Exception(f'error: {err}')
 
 
 class AssetPublic(SQLModel):
   qty: float = 0
   mean_buy: float = 0
-  value: float = 0
-  pnl_usd: float = 0
-  pnl_percent: float = 0
-  token: TokenBase | None = None
+  token: TokenPublicAsset | None = None
+  updated_at: datetime
+
+  @computed_field
+  @property
+  def value(self) -> float | None:
+    return self.qty * self.token.price
+
+  @computed_field
+  @property
+  def pnl_usd(self) -> float | None:
+    return self.value - self.mean_buy * self.qty if self.qty != 0 else 0
+
+  @computed_field
+  @property
+  def pnl_percent(self) -> float | None:
+    if self.mean_buy != 0 and self.qty != 0:
+      return (self.value / (self.mean_buy * self.qty)) - 1

@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from pydantic import ConfigDict, computed_field
-from sqlmodel import Field, SQLModel
+from pydantic import computed_field
+from sqlmodel import SQLModel
 from src.schemes.token import TokenBase
 
 

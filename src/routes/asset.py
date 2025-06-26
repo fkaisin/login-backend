@@ -14,6 +14,18 @@ router = APIRouter(
 )
 
 
+@router.get(
+  '/',
+  status_code=status.HTTP_200_OK,
+  response_model=list[AssetPublic],
+)
+async def get_user_assets(
+  session: Annotated[AsyncSession, Depends(get_session)],
+  current_user: Annotated[User, Depends(get_current_user)],
+):
+  return await AssetService(session).get_user_assets(current_user.uid)
+
+
 @router.post(
   '/',
   status_code=status.HTTP_200_OK,

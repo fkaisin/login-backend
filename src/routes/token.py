@@ -3,7 +3,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.main import get_session
-from src.db.models import Token
 from src.schemes.token import TokenPublicSmall
 from src.services.token import TokenService
 

@@ -4,7 +4,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
 from sqlmodel import Session, create_engine, delete, select, text
-from src.calculation.db import get_user_token_transactions
 from src.db.models import Asset, SmallToken, Token, Transaction, User
 from src.utils.security import hash_password
 
@@ -89,10 +88,10 @@ def resetTokens():
   with Session(engine) as session:
     # session.exec(delete(Token))
 
-    session.add(Token(cg_id='fiat_eur', symbol='EUR', name='Euro', price=1))
-    session.add(Token(cg_id='fiat_usd', symbol='USD', name='Dollar US', price=1))
-    session.add(Token(cg_id='fiat_cad', symbol='CAD', name='Dollar CA', price=1))
-    session.add(Token(cg_id='fiat_chf', symbol='CHF', name='Franc suisse', price=1))
+    session.merge(Token(cg_id='fiat_eur', symbol='EUR', name='Euro', price=1))
+    session.merge(Token(cg_id='fiat_usd', symbol='USD', name='Dollar US', price=1))
+    session.merge(Token(cg_id='fiat_cad', symbol='CAD', name='Dollar CA', price=1))
+    session.merge(Token(cg_id='fiat_chf', symbol='CHF', name='Franc suisse', price=1))
     session.commit()
 
 
@@ -154,8 +153,8 @@ def setAsset():
 
 if __name__ == '__main__':
   # resetUsers()
-  # resetTokens()
+  resetTokens()
   # reset_small_tokens()
   # resetTransactions()
-  setAsset()
+  # setAsset()
   # assign_transactions_to_ariane()

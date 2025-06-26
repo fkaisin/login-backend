@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlmodel import Field, SQLModel
 
 
@@ -21,3 +23,12 @@ class TokenPublicSmall(SQLModel):
   symbol: str
   name: str
   rank: int
+
+
+class TokenPublicAsset(SQLModel):
+  cg_id: str
+  name: str
+  symbol: str
+  price: float
+  image: str
+  updated_at: datetime

@@ -3,7 +3,7 @@ CALC_METHODS = [
   {'label': 'fifo', 'value': 2},
   {'label': 'lifo', 'value': 3},
 ]
-calc_method = {'value': 2}
+calc_method = {'value': 3}
 
 
 def get_asset_qty(token_id, transactions):

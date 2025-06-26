@@ -1,8 +1,3 @@
-import uuid
-
-from fastapi import HTTPException, status
-from fastapi.responses import JSONResponse
-from sqlalchemy.orm import load_only
 from sqlmodel import or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.models import Token
