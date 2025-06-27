@@ -66,7 +66,6 @@ class AssetService:
 
       # Supprimer fiat et valeur < $0.01
       for asset in assets[:]:  # Crée une copie de la liste pour l'itération pour ne pas sauter certains éléments
-        print(asset.token_id)
         if asset.qty * asset.token.price < 0.01 or asset.token.cg_id.startswith('fiat_'):
           assets.remove(asset)
 
@@ -97,10 +96,10 @@ class AssetService:
       new_assets = [Asset(token_id=tok_id, user_id=user_id) for tok_id in new_ids]
 
       # 3. Mettre à jour tous les assets (existants + nouveaux)
-      all_assets = existing_assets + new_assets
+      all_assets = list(existing_assets) + new_assets
       for asset in all_assets:
         await asset.update_asset()
-        self.session.add(asset)  # add() remplace merge() dans ce contexte
+        self.session.add(asset)
 
       await self.session.commit()
 
