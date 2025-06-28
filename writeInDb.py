@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
 from sqlmodel import Session, create_engine, delete, select, text
-from src.db.models import Asset, SmallToken, Token, Transaction, User
+from src.db.models import Asset, FiatHistory, SmallToken, Token, Transaction, User
 from src.utils.security import hash_password
 
 sqlite_url = 'sqlite:///./src/db/database.sqlite'
@@ -151,10 +151,51 @@ def setAsset():
     session.commit()
 
 
+def resetFiatHistory():
+  with Session(engine) as session:
+    session.exec(delete(FiatHistory))  # type: ignore
+    session.commit()
+  print_fiat_in_db('./src/EURUSD_history.csv')
+  print_fiat_in_db('./src/CADUSD_history.csv')
+  print_fiat_in_db('./src/CHFUSD_history.csv')
+
+
+def print_fiat_in_db(file_name):
+  with open(file_name, 'rt', encoding='utf-8', newline='') as f:
+    reader = csv.reader(f)
+    headers = next(reader)
+    rows = list(reader)
+
+  float_fields = {'open', 'high', 'low', 'close'}
+  result = []
+
+  for row in rows:
+    raw = {}
+    for key, value in zip(headers, row):
+      if key in float_fields:
+        raw[key] = float(value)
+      elif key == 'date':
+        raw[key] = datetime.strptime(value, '%d-%m-%Y').date()
+      else:
+        raw[key] = value
+
+    try:
+      fiat = FiatHistory(**raw)
+      result.append(fiat)
+    except Exception as e:
+      print(f'Erreur de validation pour la ligne {raw}: {e}')
+
+  with Session(engine) as session:
+    for r in result:
+      session.add(r)
+    session.commit()
+
+
 if __name__ == '__main__':
   # resetUsers()
-  resetTokens()
+  # resetTokens()
   # reset_small_tokens()
   # resetTransactions()
   # setAsset()
   # assign_transactions_to_ariane()
+  resetFiatHistory()

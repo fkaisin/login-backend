@@ -68,6 +68,17 @@ class SmallToken(SQLModel, table=True):
   id: str = Field(primary_key=True)
 
 
+class FiatHistory(SQLModel, table=True):
+  __tablename__ = 'fiat_history'  # type: ignore
+  id: str = Field(primary_key=True)
+  cg_id: str
+  date: datetime = Field(index=True)
+  open: float
+  high: float
+  low: float
+  close: float
+
+
 # class DtaoHistory(SQLModel, table=True):
 #   __tablename__ = 'dtaohistory'  # type: ignore
 #   uid: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
