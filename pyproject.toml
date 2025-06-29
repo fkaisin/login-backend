@@ -17,8 +17,10 @@ dependencies = [
     "pydantic-settings>=2.9.1",
     "pyjwt>=2.10.1",
     "pytest-asyncio>=1.0.0",
+    "python-binance>=1.0.29",
     "python-multipart>=0.0.20",
     "sqlmodel>=0.0.24",
+    "tvdatafeed",
 ]
 
 [tool.pytest.ini_options]
@@ -28,4 +30,7 @@ filterwarnings = [
     "ignore:'crypt' is deprecated:DeprecationWarning",
     "ignore:Accessing the 'model_fields' attribute.*:DeprecationWarning",
 ]
+
+[tool.uv.sources]
+tvdatafeed = { git = "https://github.com/dietmarb01/tvdatafeed.git" }
 
