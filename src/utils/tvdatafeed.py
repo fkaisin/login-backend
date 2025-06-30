@@ -24,6 +24,7 @@ def get_history_ohlc_mutliple_symbols(
             symbol = symb
         if isinstance(exch, str):
             exchange = exch
+        print(f'Searching {symb} on {exch}...')
 
         res = tv.get_hist(symbol, exchange, interval, n_bars)
         if res is None:
@@ -64,9 +65,34 @@ def get_tv_search(symbol: str, exchange: str = ''):
             'symbol': strip_em_tags(r.get('symbol', '')),
             'exchange': r.get('exchange', ''),
             'description': strip_em_tags(r.get('description', '')),
-            # 'type': r.get('type', ''),
+            'type': r.get('type', ''),
             # 'currency_code': r.get('currency_code', ''),
         }
         for r in results
-        if r.get('type') == 'spot' and r.get('currency_code', '').lower().startswith('usd')
+        if r.get('type') in ['spot', 'index'] and r.get('currency_code', '').lower().startswith('usd')
     ]
+
+
+def find_longest_history(symbol):
+    symbols = []
+    exchanges = []
+
+    res = get_tv_search(symbol)
+    print(f'{len(res)} exchanges to check...')
+    for r in res:
+        symbols.append(r['symbol'])
+        exchanges.append(r['exchange'])
+    res = get_history_ohlc_mutliple_symbols(symbols, exchanges)
+    max_length = -1
+    max_symbol = None
+    max_exchange = None
+
+    for i, r in enumerate(res):
+        length = len(r)
+        if length > max_length:
+            max_length = length
+            max_symbol = symbols[i]
+            max_exchange = exchanges[i]
+
+    print(f"Le symbol le plus long est {max_symbol} sur l'exchange {max_exchange} avec {max_length} lignes.")
+    return {'symbol': max_symbol, 'exchange': max_exchange}

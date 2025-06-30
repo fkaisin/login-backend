@@ -15,6 +15,7 @@ async def main(user: str):
 
         result = await HistoryService(session).get_pf_history(current_user_id=user_id)
         pf_history = result['pivot_df']  # Tableau de quantités date vs token_id
+        print(pf_history)
 
 
 if __name__ == '__main__':

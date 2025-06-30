@@ -1,5 +1,7 @@
 import pandas as pd
+from src.utils.decoration import timeit
 from src.utils.tvdatafeed import (
+    find_longest_history,
     get_history_ohlc_mutliple_symbols,
     get_history_ohlc_single_symbol,
     get_prices_for_dates,
@@ -7,22 +9,15 @@ from src.utils.tvdatafeed import (
 )
 
 
+@timeit
 def main_tradingview():
-    # symbol = 'PEPEUSDT'
-    # exchange = 'BINANCE'
-    # dates = ['2025-06-25', '2025-06-27', '2025-06-30']
-
-    # df = get_history_ohlc_single_symbol(symbol, exchange)
-    # print(df)
-    # res = get_prices_for_dates(df, dates)
-    # print(res)
-
-    symbol = 'naviusd'
-    exchange = ''
-
-    res = get_tv_search(symbol, exchange)
+    symbol = 'RVSTWETH'
+    # exchange = 'UNISWAP'
+    res = get_tv_search(symbol)
     for r in res:
         print(r)
+
+    # find_longest_history(symbol)
 
 
 if __name__ == '__main__':
