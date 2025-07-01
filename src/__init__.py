@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
   print('=' * 50, ' Starting up  ... ', '=' * 50)
   await init_db()
 
-  # await start_periodic_task()  # Exécute les tâches...
+  await start_periodic_task()  # Exécute les tâches...
 
   yield
 

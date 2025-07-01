@@ -17,19 +17,14 @@ def get_history_ohlc_mutliple_symbols(
     symbol: list, exchange: list, n_bars: int = 10000, interval: Interval = Interval.in_daily
 ):
     tv = TvDatafeed()
-
-    all_results = []
-    for symb, exch in zip(symbol, exchange):
-        if isinstance(symb, str):
-            symbol = symb
-        if isinstance(exch, str):
-            exchange = exch
+    all_results = [None] * len(symbol)
+    for i, (symb, exch) in enumerate(zip(symbol, exchange)):
         print(f'Searching {symb} on {exch}...')
-
-        res = tv.get_hist(symbol, exchange, interval, n_bars)
+        res = tv.get_hist(symb, exch, interval, n_bars)
         if res is None:
             continue
-        all_results.append(res)
+        print('length:', len(res))
+        all_results[i] = res
     return all_results
 
 
@@ -73,26 +68,28 @@ def get_tv_search(symbol: str, exchange: str = ''):
     ]
 
 
-def find_longest_history(symbol):
-    symbols = []
-    exchanges = []
-
-    res = get_tv_search(symbol)
-    print(f'{len(res)} exchanges to check...')
-    for r in res:
-        symbols.append(r['symbol'])
-        exchanges.append(r['exchange'])
+def find_longest_history(exchange_list):
+    symbols = [r['symbol'] for r in exchange_list]
+    exchanges = [r['exchange'] for r in exchange_list]
+    print(f'{len(exchange_list)} exchanges to check...')
     res = get_history_ohlc_mutliple_symbols(symbols, exchanges)
     max_length = -1
-    max_symbol = None
-    max_exchange = None
+    max_index = -1
 
     for i, r in enumerate(res):
+        if r is None:
+            continue
         length = len(r)
+        print(f'Index {i}, symbol {symbols[i]}, exchange {exchanges[i]}, length = {length}')
         if length > max_length:
             max_length = length
-            max_symbol = symbols[i]
-            max_exchange = exchanges[i]
+            max_index = i
 
-    print(f"Le symbol le plus long est {max_symbol} sur l'exchange {max_exchange} avec {max_length} lignes.")
-    return {'symbol': max_symbol, 'exchange': max_exchange}
+    if max_index != -1:
+        max_symbol = symbols[max_index]
+        max_exchange = exchanges[max_index]
+        print(f"Le symbol le plus long est {max_symbol} sur l'exchange {max_exchange} avec {max_length} lignes.")
+        return exchange_list[max_index]
+    else:
+        print('Aucune donnée historique trouvée.')
+        return None

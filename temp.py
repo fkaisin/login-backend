@@ -11,12 +11,14 @@ from src.utils.tvdatafeed import (
 
 @timeit
 def main_tradingview():
-    symbol = 'RVSTWETH'
-    # exchange = 'UNISWAP'
-    res = get_tv_search(symbol)
-    for r in res:
-        print(r)
+    symbol = 'TAOUSD'
+    exchange = 'binance'
+    # res = get_tv_search(symbol)
+    # for r in res:
+    #     print(r)
 
+    res = get_history_ohlc_single_symbol(symbol, exchange)
+    print(res)
     # find_longest_history(symbol)
 
 
