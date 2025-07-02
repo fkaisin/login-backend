@@ -13,9 +13,10 @@ async def main(user: str):
         result = await session.exec(select(User.uid).where(User.username == user))
         user_id = result.first()
 
-        result = await HistoryService(session).get_pf_history(current_user_id=user_id)
-        pf_history = result['pivot_df']  # Tableau de quantités date vs token_id
-        print(pf_history)
+        result = await HistoryService(session).build_portfolio_df(current_user_id=user_id)
+        # result.to_csv('pf.csv')
+
+        print(result)
 
 
 if __name__ == '__main__':
