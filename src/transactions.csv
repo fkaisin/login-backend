@@ -80,7 +80,7 @@ date,type,qty_a,actif_a_id,price,qty_v,actif_v_id,destination,qty_f,actif_f_id,o
 29-02-24 22:02:00,Swap,67.77,livepeer,14.05,952.1685,tether,Bitget,0.06777,livepeer,,,14.05,79
 01-03-24 10:00:00,Airdrop,319544.31069598,htx-dao,,,,Bitget,,,,,0.000001836,80
 02-03-24 20:41:00,Swap,4000.0,0x0-ai-ai-smart-contract,0.27,1080.0,tether,Bitget,4.0,0x0-ai-ai-smart-contract,,,0.27,81
-05-03-24 09:59:00,Swap,238.1787,router-protocol-2,4.2,1000.35054,tether,KuCoin,2.0006,tether,,,4.2,82
+05-03-24 09:59:00,Swap,238.1787,route,4.2,1000.35054,tether,KuCoin,2.0006,tether,,,4.2,82
 05-03-24 17:24:00,Transfert,0.02540229,ethereum,,,,Bitget,0.00019229,ethereum,Trust Wallet (ARB),,3710.0,83
 11-03-24 09:48:00,Transfert,2000.0,tether,,,,KuCoin,1.0,tether,Bitget,,1.0,84
 11-03-24 09:54:00,Swap,142.5,lukso-token-2,6.999993708,997.49910339,tether,KuCoin,0.9974991,tether,,,6.999993708,85
@@ -139,7 +139,7 @@ date,type,qty_a,actif_a_id,price,qty_v,actif_v_id,destination,qty_f,actif_f_id,o
 12-08-24 22:07:00,Transfert,1388.18776,cardano,,,,Binance,0.164049,cardano,Ledger,,0.3353,138
 13-08-24 02:31:00,Swap,471.92,tether,2.94117647058824,1388.0,cardano,Binance,0.47192,tether,,,1.0,139
 27-08-24 10:15:00,Transfert,3357.942831,tether,,,,Quantfury,1.0,tether,Bitget,,1.0,140
-03-09-24 12:00:00,Swap,7938.496071,router-protocol-2,0.03000300030003,238.1787,router-protocol-2,KuCoin,,,,,0.04620462,141
+03-09-24 12:00:00,Swap,7938.496071,router-protocol-2,0.03000300030003,238.1787,route,KuCoin,,,,,0.04620462,141
 16-09-24 16:05:00,Transfert,471.495488,tether,,,,Quantfury,1.5,tether,Binance,,1.0,142
 22-09-24 21:38:00,Swap,954.876,tether,0.6283538386136,600.0,fetch-ai,Bitget,0.954876,tether,,,1.0,143
 22-09-24 22:07:00,Swap,1163.5,tether,0.00214868929952729,2.5,bittensor,Bitget,1.1634812,tether,,,1.0,144
@@ -290,3 +290,5 @@ date,type,qty_a,actif_a_id,price,qty_v,actif_v_id,destination,qty_f,actif_f_id,o
 15-05-25 08:30:00,Swap,1.48,dtao-64-chutes,0.22972972972973,0.34,bittensor,Bittensor Wallet,,,,,99.0,289
 15-05-25 08:31:00,Swap,2.03,dtao-56-gradients,0.0985221674876847,0.2,bittensor,Bittensor Wallet,,,,,42.5,290
 15-05-25 08:32:00,Swap,2.99,dtao-19-nineteen.ai,0.0501672240802676,0.15,bittensor,Bittensor Wallet,,,,,21.8,291
+29-06-25 14:13:00,Swap,1893.03325,tether,1.6117853746595103,3051.14,syrup,MEXC,0.946516626,tether,,,1,292
+02-07-25 18:50:00,Swap,1,bittensor,335.9,335.9,tether,Bitget,0.001,bittensor,,,335.9,293

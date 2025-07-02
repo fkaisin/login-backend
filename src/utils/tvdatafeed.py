@@ -3,7 +3,6 @@ from src.utils.decoration import timeit
 from tvDatafeed import Interval, TvDatafeed
 
 
-@timeit
 def get_history_ohlc_single_symbol(
     symbol: str, exchange: str, n_bars: int = 10000, interval: Interval = Interval.in_daily
 ):
@@ -12,18 +11,16 @@ def get_history_ohlc_single_symbol(
     return res
 
 
-@timeit
 def get_history_ohlc_mutliple_symbols(
     symbol: list, exchange: list, n_bars: int = 10000, interval: Interval = Interval.in_daily
 ):
     tv = TvDatafeed()
     all_results = [None] * len(symbol)
     for i, (symb, exch) in enumerate(zip(symbol, exchange)):
-        print(f'Searching {symb} on {exch}...')
+        # print(f'Searching {symb} on {exch}...')
         res = tv.get_hist(symb, exch, interval, n_bars)
         if res is None:
             continue
-        print('length:', len(res))
         all_results[i] = res
     return all_results
 

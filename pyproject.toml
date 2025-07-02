@@ -9,8 +9,6 @@ dependencies = [
     "aiosqlite>=0.21.0",
     "alembic>=1.16.2",
     "bcrypt>=4.0.*",
-    # "bittensor>=9.7.0",
-    # "fastapi[standard]>=0.110.3",
     "celery[beat,redis]>=5.5.3",
     "fastapi[standard]>=0.115.13",
     "passlib>=1.7.4",
@@ -23,6 +21,11 @@ dependencies = [
     "tvdatafeed",
 ]
 
+
+[tool.uv.sources]
+tvdatafeed = { git = "https://github.com/dietmarb01/tvdatafeed.git" }
+
+
 [tool.pytest.ini_options]
 pythonpath = [".", "src"]
 testpaths = ["src/tests"]
@@ -30,7 +33,3 @@ filterwarnings = [
     "ignore:'crypt' is deprecated:DeprecationWarning",
     "ignore:Accessing the 'model_fields' attribute.*:DeprecationWarning",
 ]
-
-[tool.uv.sources]
-tvdatafeed = { git = "https://github.com/dietmarb01/tvdatafeed.git" }
-

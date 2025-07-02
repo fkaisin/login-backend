@@ -15,31 +15,31 @@ from src.routes.user import router as user_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-  print('=' * 50, ' Starting up  ... ', '=' * 50)
-  await init_db()
+    print('=' * 50, ' Starting up  ... ', '=' * 50)
+    await init_db()
 
-  await start_periodic_task()  # Exécute les tâches...
+    # await start_periodic_task()  # Exécute les tâches...
 
-  yield
+    yield
 
-  # Exécute le checkpoint WAL pour forcer la sauvegarde de la db
-  async with engine.begin() as conn:
-    await conn.execute(text('PRAGMA wal_checkpoint(FULL);'))
-    # print('✅ WAL checkpoint effectué.')
+    # Exécute le checkpoint WAL pour forcer la sauvegarde de la db
+    async with engine.begin() as conn:
+        await conn.execute(text('PRAGMA wal_checkpoint(FULL);'))
+        # print('✅ WAL checkpoint effectué.')
 
-  print('=' * 50, ' Shutting down... ', '=' * 50)
+    print('=' * 50, ' Shutting down... ', '=' * 50)
 
 
 app = FastAPI(lifespan=lifespan)
 
 origins = [
-  'http://127.0.0.1:5173',
-  'http://localhost:5173',
-  # Add more origins here
+    'http://127.0.0.1:5173',
+    'http://localhost:5173',
+    # Add more origins here
 ]
 
 app.add_middleware(
-  CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=['*'], allow_headers=['*']
+    CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=['*'], allow_headers=['*']
 )
 
 

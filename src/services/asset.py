@@ -85,6 +85,11 @@ class AssetService:
 
             return assets
 
+        except AttributeError as err:
+            await self.session.rollback()
+            await self.delete_old_assets(current_user_uid)
+            print(err)
+
         except Exception as err:
             await self.session.rollback()
             print(err)
@@ -145,3 +150,39 @@ class AssetService:
             )
 
         return r
+
+    async def delete_old_assets(self, current_user_uid):
+        try:
+            statement = (
+                select(User)
+                .where(User.uid == current_user_uid)
+                .options(
+                    selectinload(User.transactions),  # type: ignore
+                    selectinload(User.assets),  # type: ignore
+                )
+            )
+            result = await self.session.exec(statement)
+            user = result.one()
+
+            token_ids = set()
+            for trx in user.transactions:
+                token_ids.add(trx.actif_a_id)
+                token_ids.add(trx.actif_v_id)
+                token_ids.add(trx.actif_f_id)
+            token_ids.discard(None)
+
+            assets_dict = {asset.token_id: asset for asset in user.assets}
+
+            assets_ids = set(assets_dict.keys())
+            missing_in_tx = assets_ids - token_ids
+
+            for asset_to_delete_from_assets in missing_in_tx:
+                print(assets_dict.get(asset_to_delete_from_assets))
+                await self.session.delete(assets_dict.get(asset_to_delete_from_assets))
+            await self.session.commit()
+
+        except Exception as err:
+            await self.session.rollback()
+            print('-' * 80)
+            print(err)
+            print('-' * 80)
