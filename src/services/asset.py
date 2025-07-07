@@ -1,12 +1,9 @@
 import uuid
 
-from fastapi import HTTPException, status
-from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.models import Asset, Token, User
-from src.utils.tvdatafeed import find_longest_history, get_tv_search
 
 
 class AssetService:
@@ -121,35 +118,6 @@ class AssetService:
             await self.session.rollback()
             print(f'[Asset Update Error] {e}')
             raise  # Re-raise pour un handling externe éventuel
-
-    async def get_best_ticker_exchange(self, cg_id: str):
-        result = await self.session.exec(select(Token.symbol).where(Token.cg_id == cg_id))
-        try:
-            token_symbol = result.one() + 'USD'
-        except NoResultFound:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Token id non présent dans la DB.')
-
-        except Exception as e:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=e)
-
-        exchange_list = get_tv_search(token_symbol)
-
-        for r in exchange_list:
-            if r['type'] == 'index' and r['symbol'] == token_symbol:
-                return r
-
-        for r in exchange_list:
-            if r['exchange'] == 'CRYPTO':
-                return r
-
-        r = find_longest_history(exchange_list)
-
-        if r is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail='Non trouvé. Veuillez entrer manuellement.'
-            )
-
-        return r
 
     async def delete_old_assets(self, current_user_uid):
         try:

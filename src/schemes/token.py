@@ -36,3 +36,8 @@ class TokenPublicAsset(SQLModel):
 
 class TokenId(SQLModel):
     cg_id: str
+
+
+class Ticker(TokenId):
+    ticker: str
+    exchange: str
