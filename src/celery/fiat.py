@@ -123,7 +123,7 @@ async def get_all_fiat_history_in_db():
                 FiatHistory(
                     id=f'{symbol.lower()}_{dt.strftime("%d%m%Y")}',
                     cg_id=cg_id,
-                    date=dt,
+                    date=dt.date(),
                     open=float(row['open']),
                     high=float(row['high']),
                     low=float(row['low']),

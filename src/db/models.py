@@ -19,6 +19,7 @@ class User(UserBase, table=True):
 
     transactions: list['Transaction'] = Relationship(back_populates='user', cascade_delete=True)
     assets: list['Asset'] = Relationship(back_populates='user', cascade_delete=True)
+    pf_history: list['UserPfHistory'] = Relationship(back_populates='user', cascade_delete=True)
 
 
 class Token(TokenBase, table=True):
@@ -79,16 +80,17 @@ class FiatHistory(SQLModel, table=True):
     close: float
 
 
-class DtaoHistory(SQLModel, table=True):
-    __tablename__ = 'dtao_history'  # type: ignore
-    __table_args__ = (UniqueConstraint('cg_id', 'date'),)
-    uid: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    cg_id: str = Field(index=True)
-    date: datetime = Field(index=True)
-    close: float
-
-
 class DtaoCgList(SQLModel, table=True):
     __tablename__ = 'dtao_list'
     cg_id: str = Field(primary_key=True)
     symbol: str = Field(index=True)
+
+
+class UserPfHistory(SQLModel, table=True):
+    __tablename__ = 'user_portfolio_history'
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID | None = Field(default=None, index=True, foreign_key='users.uid', ondelete='CASCADE')
+    date: datetime
+    value_in_usd: float
+
+    user: User = Relationship(back_populates='pf_history')

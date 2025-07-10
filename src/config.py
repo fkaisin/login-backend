@@ -8,10 +8,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str
     JWT_ACCESS_EXPIRATION_IN_MIN: int
     JWT_REFRESH_EXPIRATION_IN_HOURS: int
+    STABLECOINS: list[str]
+    FIATS: list[str]
 
-    model_config = SettingsConfigDict(
-        env_file='.env', env_file_encoding='utf-8', extra='ignore'
-    )
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
 
 
-settings = Settings()  # type: ignore
+settings = Settings()

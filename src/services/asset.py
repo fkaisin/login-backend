@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy.exc import MissingGreenlet
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -29,28 +30,38 @@ class AssetService:
                 token_ids.add(trx.actif_v_id)
                 token_ids.add(trx.actif_f_id)
             token_ids.discard(None)
+            print(token_ids)
 
             assets_dict = {asset.token_id: asset for asset in user.assets}
 
             for tok_id in token_ids:
                 if tok_id not in assets_dict:
                     new_asset = Asset(token_id=tok_id, user_id=current_user_uid)
-                    await new_asset.update_asset()
+                    await new_asset.update_asset(self.session)
                     await self.session.merge(new_asset)
                 else:
                     asset = assets_dict[tok_id]
-                    await asset.update_asset()
+                    await asset.update_asset(self.session)
                     await self.session.merge(asset)
 
             await self.session.commit()
 
-            assets = await self.get_user_assets(current_user_uid, refresh=False)
-
-            return assets
+        except MissingGreenlet as err:
+            await self.session.rollback()
+            print('Session error:', err)
+            print('for token:', tok_id)
 
         except Exception as err:
             await self.session.rollback()
-            print(err)
+            print('Exception:', err)
+
+        assets = await self.get_user_assets(current_user_uid, refresh=False)
+
+        if assets is not None:
+            return assets
+        else:
+            print('assets is None')
+            return []
 
     async def get_user_assets(self, current_user_uid, refresh: bool = True):
         try:
@@ -85,11 +96,13 @@ class AssetService:
         except AttributeError as err:
             await self.session.rollback()
             await self.delete_old_assets(current_user_uid)
-            print(err)
+            print('attributeError:', err)
+            return []
 
         except Exception as err:
             await self.session.rollback()
-            print(err)
+            print('Exception:', err)
+            return []
 
     async def update_specific_assets(self, user_id: uuid.UUID, token_ids: set[str]):
         if not token_ids:
@@ -109,7 +122,7 @@ class AssetService:
             # 3. Mettre à jour tous les assets (existants + nouveaux)
             all_assets = list(existing_assets) + new_assets
             for asset in all_assets:
-                await asset.update_asset()
+                await asset.update_asset(self.session)
                 self.session.add(asset)
 
             await self.session.commit()
@@ -151,6 +164,4 @@ class AssetService:
 
         except Exception as err:
             await self.session.rollback()
-            print('-' * 80)
             print(err)
-            print('-' * 80)

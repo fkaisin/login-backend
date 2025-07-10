@@ -31,6 +31,6 @@ async def check_ticker_exchange_route(tok: Ticker):
 async def calculate_histo_pf(
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
-    tv_list: list[TokenId],
+    tv_list: list[Ticker],
 ):
     return await HistoryService(session).calculate_histo_pf(current_user.uid, tv_list)

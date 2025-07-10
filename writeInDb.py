@@ -3,8 +3,8 @@ import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
-from sqlmodel import Session, create_engine, delete, select, text
-from src.db.models import Asset, FiatHistory, SmallToken, Token, Transaction, User
+from sqlmodel import MetaData, Session, Table, create_engine, delete, select, text
+from src.db.models import Asset, DtaoCgList, FiatHistory, SmallToken, Token, Transaction, User
 from src.utils.security import hash_password
 
 sqlite_url = 'sqlite:///./src/db/database.sqlite'
@@ -191,11 +191,18 @@ def print_fiat_in_db(file_name):
         session.commit()
 
 
+def delete_table():
+    metadata = MetaData()
+    metadata.reflect(bind=engine)
+    Table('user_portfolio_history', metadata).drop(engine, metadata)
+
+
 if __name__ == '__main__':
     # resetUsers()
     # resetTokens()
-    reset_small_tokens()
+    # reset_small_tokens()
     # resetTransactions()
     # setAsset()
     # assign_transactions_to_ariane()
     # resetFiatHistory()
+    delete_table()

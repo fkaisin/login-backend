@@ -54,7 +54,7 @@ def daily_fiat_history_task():
     asyncio.run(get_daily_fiat_history_async_task())
 
 
-# Tache pour récupérer les subnets dtao sur coingecko + reconstruire l'historique via l'appel à taostats.io ?
+# reconstruire l'historique via l'appel à taostats.io ?
 
 # Tache journalière pour archiver la valeur du portefeuille ?
 

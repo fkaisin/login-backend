@@ -17,24 +17,35 @@ class AssetBase(SQLModel):
     qty: float = 0
     mean_buy: float = 0
 
-    async def update_asset(self):
+    async def update_asset(self, session):
         from src.db.models import User
 
-        async for session in get_session():
+        try:
+            statement = select(User).where(User.uid == self.user_id).options(selectinload(User.transactions))  # type: ignore
+            results = await session.exec(statement)
+            user = results.one()
+
+            transactions = sorted(user.transactions, key=lambda trx: trx.date)
             try:
-                statement = select(User).where(User.uid == self.user_id).options(selectinload(User.transactions))  # type: ignore
-                results = await session.exec(statement)
-                user = results.one()
-
-                transactions = sorted(user.transactions, key=lambda trx: trx.date)
-
                 self.qty = max(get_asset_qty(token_id=self.token_id, transactions=transactions), 0)
+            except Exception as err:
+                print('erreur dans get_asset_qty')
+                print(err)
+            try:
                 self.mean_buy = (
-                    get_asset_mean_buy(token_id=self.token_id, transactions=transactions) if self.qty != 0 else 0
+                    await get_asset_mean_buy(token_id=self.token_id, transactions=transactions, session=session)
+                    if self.qty != 0
+                    else 0
                 )
+            except Exception as err:
+                print('erreur dans get_asset_mean_buy')
+                print(err)
 
-            except NoResultFound:
-                raise Exception('User not found in DB.')
+        except NoResultFound:
+            raise Exception('User not found in DB.')
+
+        except Exception as err:
+            print('erreur inconnue:', err)
 
 
 class AssetPublic(SQLModel):
