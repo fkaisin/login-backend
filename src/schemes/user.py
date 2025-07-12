@@ -18,6 +18,9 @@ class UserPublic(UserBase):
     created_at: datetime
     updated_at: datetime
     rank: int = 1020
+    fiat_id: str
+    calc_method_display: str
+    calc_method_tax: str
 
 
 class UserUpdateAdmin(SQLModel):
@@ -28,6 +31,9 @@ class UserUpdateAdmin(SQLModel):
 
 class UserUpdate(UserUpdateAdmin):
     old_password: str | None = None
+    fiat_id: str | None = None
+    calc_method_display: str | None = None
+    calc_method_tax: str | None = None
 
 
 class UserLogin(SQLModel):

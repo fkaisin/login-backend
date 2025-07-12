@@ -4,6 +4,7 @@ from typing import Optional
 
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 from src.schemes.asset import AssetBase
+from src.schemes.history import UserHistoryBase
 from src.schemes.token import TokenBase
 from src.schemes.transaction import TransactionBase
 from src.schemes.user import UserBase
@@ -14,6 +15,9 @@ class User(UserBase, table=True):
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
     rank: int = 1020
+    fiat_id: str = Field(default='fiat_eur', foreign_key='tokens.cg_id')
+    calc_method_display: str = 'weighted average'
+    calc_method_tax: str = 'fifo'
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now, sa_column_kwargs={'onupdate': datetime.now})
 
@@ -86,11 +90,9 @@ class DtaoCgList(SQLModel, table=True):
     symbol: str = Field(index=True)
 
 
-class UserPfHistory(SQLModel, table=True):
+class UserPfHistory(UserHistoryBase, table=True):
     __tablename__ = 'user_portfolio_history'
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: uuid.UUID | None = Field(default=None, index=True, foreign_key='users.uid', ondelete='CASCADE')
-    date: datetime
-    value_in_usd: float
 
     user: User = Relationship(back_populates='pf_history')

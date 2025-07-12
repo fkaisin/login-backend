@@ -1,17 +1,18 @@
-import asyncio
 import time
 from collections import defaultdict
+from datetime import timedelta
 
 import aiohttp
 import pandas as pd
 from fastapi import HTTPException, status
 from sqlalchemy.exc import NoResultFound
-from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from src.celery.tasks import compute_pf_history_task, wait_for_celery_result
 from src.config import settings
-from src.db.models import DtaoCgList, Token, Transaction, UserPfHistory
+from src.db.models import DtaoCgList, FiatHistory, Token, Transaction, User, UserPfHistory
 from src.schemes.token import Ticker
+from src.utils.calculations import get_cash_in_usd
 from src.utils.tvdatafeed import find_longest_history, get_history_ohlc_single_symbol, get_tv_search
 
 
@@ -21,15 +22,7 @@ class HistoryService:
 
     async def build_portfolio_df(self, current_user_id):
         # Récupération des transactions de l'utilisateur
-        statement = (
-            select(Transaction)
-            .where(Transaction.user_id == current_user_id)
-            .options(
-                selectinload(Transaction.actif_a).load_only(Token.symbol),
-                selectinload(Transaction.actif_v).load_only(Token.symbol),
-                selectinload(Transaction.actif_f).load_only(Token.symbol),
-            )
-        )
+        statement = select(Transaction).where(Transaction.user_id == current_user_id)
         transactions = (await self.session.exec(statement)).all()
         transactions.sort(key=lambda t: t.date)
 
@@ -78,82 +71,87 @@ class HistoryService:
             .fillna(0)
         )
 
-        return df_pivot
+        return (df_pivot, transactions)
 
     async def calculate_histo_pf(self, current_user_uid, tv_list):
-        df_qty = await self.build_portfolio_df(current_user_uid)
-        # print(df_qty)
-        first_date_qty = df_qty.index[0]
-        last_date_qty = df_qty.index[-2]
-        all_histories = []
-        ignored_tokens = []
+        df_qty, transactions = await self.build_portfolio_df(current_user_uid)
 
-        for token in df_qty.columns:
-            # print('Récupération des données pour :', token)
-            dates = df_qty.index[df_qty[token] > 0]
-            first_date = dates.min()
-            last_date = dates.max()
+        # Conversion pour Celery
+        df_qty_json = df_qty.to_json(orient='split')
+        tv_list_data = [t.dict() for t in tv_list]
+        transactions_data = [t.model_dump() for t in transactions]
 
-            if token in settings.STABLECOINS:
-                date_range = pd.date_range(start=first_date, end=last_date, freq='D')
-                df_stable = pd.DataFrame({'datetime': date_range, 'close': 1.0, 'token': token})
-                all_histories.append(df_stable)
+        # get_cash_in_usd(transactions_data)
 
-            elif token in settings.FIATS:
-                continue  # On n'intègre pas les fiat dans le calcul historique du pf crypto
+        # Lancement de la tâche Celery
+        async_result = compute_pf_history_task.delay(df_qty_json, tv_list_data, transactions_data)
 
-            else:
-                ticker_obj = next((t for t in tv_list if t.cg_id == token), None)
-                ticker = ticker_obj.ticker if ticker_obj else None
-                exchange = ticker_obj.exchange if ticker_obj else None
+        # ⏳ Attente non bloquante du résultat
+        try:
+            task_result = await wait_for_celery_result(async_result.id, timeout=300)
+        except TimeoutError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail='Délai dépassé pour le calcul du portefeuille.'
+            )
 
-                if exchange == 'taostats.io':
-                    token_full_history = await get_dtao_history(ticker, token)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Erreur dans la tâche Celery : {str(e)}'
+            )
 
+        result = task_result['result']
+        ignored_tokens = task_result['ignored_tokens']
+
+        # Ajout colonne des totaux en fiats
+
+        for fiat_id in [f for f in settings.FIATS if f != 'fiat_usd']:
+            min_date = result[0]['index'] - timedelta(days=20)
+            max_date = result[-1]['index']
+            statement = select(FiatHistory.date, FiatHistory.close).where(
+                FiatHistory.cg_id == fiat_id, FiatHistory.date >= min_date, FiatHistory.date <= max_date
+            )
+            results = await self.session.exec(statement)
+            fiat_history_dict = {date: rate for date, rate in results.all()}  # ✅ proper dict
+
+            sorted_dates = sorted(fiat_history_dict.keys())
+
+            for row in result:
+                date = row['index']
+
+                # Cherche la dernière date <= date
+                nearest_rate = None
+                for d in reversed(sorted_dates):  # on parcourt depuis la fin
+                    if d <= date:
+                        nearest_rate = fiat_history_dict[d]
+                        break
+
+                if row['total_fiat_usd'] != 0 and nearest_rate is not None:
+                    row[f'total_{fiat_id}'] = row['total_fiat_usd'] / nearest_rate
                 else:
-                    token_full_history = get_history_ohlc_single_symbol(ticker, exchange)
-                    if token_full_history is None:
-                        print("Impossible de récupérer l'historiuque pour :", token)
-                        ignored_tokens.append(token)
-                        continue
+                    row[f'total_{fiat_id}'] = 0.0
 
-                token_history = token_full_history.loc[first_date:last_date, ['close']].copy()
-                token_history['token'] = token
-                token_history = token_history.reset_index()
-                all_histories.append(token_history)
+        # Fin ajout de la colonne en fiat
 
-                await asyncio.sleep(0.5)
+        # Ajout des colonnes cash in
+        # -------------------------------------------------------------------------------------------------------------------------
+        df_result = pd.DataFrame(result)
+        df_result['index'] = pd.to_datetime(df_result['index']).dt.normalize()
+        df_result = df_result.set_index('index')
 
-        df_all_history = pd.concat(all_histories, ignore_index=True)
+        cash_in_usd = await get_cash_in_usd(transactions_data, df_result)
 
-        # S'assurer que 'datetime' est bien en datetime et créer la colonne 'date'
-        df_all_history['date'] = pd.to_datetime(df_all_history['datetime']).dt.date
+        df_cash_in_usd = pd.DataFrame(cash_in_usd)
+        df_cash_in_usd['date'] = df_cash_in_usd['date'].dt.normalize()
+        df_cash_in_usd = df_cash_in_usd.set_index('date')
+        df_cash_in_usd = df_cash_in_usd[~df_cash_in_usd.index.duplicated(keep='last')]
 
-        # Pivot, tri, reindex et nettoyage en une séquence
-        full_date_index = pd.date_range(start=first_date_qty.date(), end=last_date_qty.date(), freq='D')
-        df_price = (
-            df_all_history.pivot(index='date', columns='token', values='close')
-            .sort_index()
-            .reindex(full_date_index)
-            .fillna(0)
-        )
-        df_price.index.name = 'date'
+        cash_in_series = df_cash_in_usd.reindex(df_result.index, method='ffill')
+        cash_in_series['cash_in_fiat_usd'].fillna(0, inplace=True)
 
-        # print(df_price)
+        df_result['cash_in_fiat_usd'] = cash_in_series
+        print(df_result)
 
-        # Multiplication des deux df
-        common_tokens = df_price.columns.intersection(df_qty.columns)
-        common_dates = df_price.index.intersection(df_qty.index)
-        price_aligned = df_price.loc[common_dates, common_tokens]
-        qty_aligned = df_qty.loc[common_dates, common_tokens]
-        df_value = price_aligned * qty_aligned
-        df_value['total'] = df_value.sum(axis=1)
-
-        # print(df_value)
-
-        df_totals = df_value[['total']].copy()
-        df_totals.reset_index(inplace=True)
-        result = df_totals.to_dict(orient='records')  # Dict date + total
+        # Fin ajout des colonnes cash in
 
         # Supprimer les anciens historiques pour cet utilisateur
         statement = select(UserPfHistory).where(UserPfHistory.user_id == current_user_uid)
@@ -167,17 +165,22 @@ class HistoryService:
 
         # Ajouter les nouvelles données
         for row in result:
-            new_item = UserPfHistory(user_id=current_user_uid, date=row['index'], value_in_usd=row['total'])
+            new_item = UserPfHistory(
+                user_id=current_user_uid,
+                date=row['index'],
+                value_in_usd=row['total_fiat_usd'],
+                value_in_eur=row['total_fiat_eur'],
+                value_in_cad=row['total_fiat_cad'],
+                value_in_chf=row['total_fiat_chf'],
+            )
             self.session.add(new_item)
 
         await self.session.commit()
 
-        # print(result)
-
         # Tracer la courbe
         # import matplotlib.pyplot as plt
         # plt.figure(figsize=(12, 6))
-        # plt.plot(df_totals.index, df_totals['total'], label='Valeur totale', color='royalblue')
+        # plt.plot(df_totals.index, df_totals['total_fiat_usd'], label='Valeur totale', color='royalblue')
         # plt.title('Évolution de la valeur totale du portefeuille')
         # plt.xlabel('Date')
         # plt.ylabel('Total (€ ou $)')
@@ -239,6 +242,11 @@ class HistoryService:
                 )
 
         return r
+
+    async def get_pf_history(self, current_user_uid):
+        statement = select(UserPfHistory).where(UserPfHistory.user_id == current_user_uid)
+        results = await self.session.exec(statement)
+        return results.all()
 
 
 def check_ticker_exchange(ticker: Ticker):

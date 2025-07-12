@@ -1,8 +1,5 @@
-from datetime import datetime, timedelta
-
-from sqlmodel import select
 from src.config import settings
-from src.db.main import get_session
+from src.utils.calculations import get_fiat_price
 
 CALC_METHODS = [
     {'label': 'weighted average', 'value': 1},
@@ -92,24 +89,3 @@ async def get_asset_mean_buy(token_id, transactions, session):
     average_price = total_buy_value / total_buy_qty
 
     return average_price
-
-
-async def get_fiat_price(fiat, date, session):
-    from src.db.models import FiatHistory
-
-    price = None
-    count = 0
-
-    date = date.date()
-
-    while price is None and count < 20:
-        count += 1
-        previous_day = date - timedelta(days=1)
-        date = previous_day
-        date = datetime.combine(date, datetime.min.time())
-
-        statement = select(FiatHistory.close).where(FiatHistory.cg_id == fiat, FiatHistory.date == previous_day)
-        result = await session.exec(statement)
-        price = result.first()
-
-    return price if price is not None else 0

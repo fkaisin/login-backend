@@ -39,6 +39,9 @@ class UserService:
         if username_lower == 'fkaisin':
             extra_data['rank'] = 1337
         db_user = User.model_validate(user, update=extra_data)
+        print('élément inséré dans la db: ', db_user.fiat_id)
+        print('élément inséré dans la db: ', db_user.calc_method_display)
+        print('élément inséré dans la db: ', db_user.calc_method_tax)
         self.session.add(db_user)
         await self.session.commit()
         await self.session.refresh(db_user)
