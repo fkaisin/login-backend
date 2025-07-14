@@ -18,6 +18,7 @@ class User(UserBase, table=True):
     fiat_id: str = Field(default='fiat_eur', foreign_key='tokens.cg_id')
     calc_method_display: str = 'weighted average'
     calc_method_tax: str = 'fifo'
+    tax_principle: str = 'pv'
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now, sa_column_kwargs={'onupdate': datetime.now})
 

@@ -30,11 +30,13 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column('fiat_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
         batch_op.add_column(sa.Column('calc_method_display', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
         batch_op.add_column(sa.Column('calc_method_tax', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
+        batch_op.add_column(sa.Column('tax_principle', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
 
     # Mise à jour des valeurs par défaut dans une étape séparée (hors batch)
     op.execute("UPDATE users SET fiat_id = 'fiat_eur' WHERE fiat_id IS NULL")
     op.execute("UPDATE users SET calc_method_display = 'weighted average' WHERE calc_method_display IS NULL")
     op.execute("UPDATE users SET calc_method_tax = 'fifo' WHERE calc_method_tax IS NULL")
+    op.execute("UPDATE users SET tax_principle = 'pv' WHERE tax_principle IS NULL")
 
     # Maintenant modification des colonnes pour les passer en NOT NULL + ajout FK
     with op.batch_alter_table('users') as batch_op:
@@ -60,3 +62,4 @@ def downgrade() -> None:
         batch_op.drop_column('calc_method_tax')
         batch_op.drop_column('calc_method_display')
         batch_op.drop_column('fiat_id')
+        batch_op.drop_column('tax_principle')

@@ -1,8 +1,10 @@
+import uuid
+
 from fastapi import HTTPException, status
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.models import User
-from src.schemes.user import UserUpdate, UserUpdateAdmin
+from src.schemes.user import UserParamsUpdate, UserUpdate, UserUpdateAdmin
 from src.utils.dbcheck import (
     check_username_or_email_exists,
 )
@@ -52,7 +54,8 @@ class UserService:
         print('username.lower :', username.lower())
         # user = await self.session.get(User, username.lower())
         results = await self.session.exec(select(User).where(User.username == username.lower()))
-        user = results.one()
+        # user = results.one()
+        user = results.first()  # Utilise first() au lieu de one()
 
         if not user:
             raise HTTPException(
@@ -178,3 +181,13 @@ class UserService:
             )
         await self.session.delete(user)
         await self.session.commit()
+
+    async def update_params(self, user_uid: uuid.UUID, params: UserParamsUpdate):
+        params_to_update = params.model_dump(exclude_unset=True)
+        user_db = await self.session.get(User, user_uid)
+        if user_db is not None:
+            user_db.sqlmodel_update(params_to_update)
+            self.session.add(user_db)
+            await self.session.commit()
+            await self.session.refresh(user_db)
+            return user_db
