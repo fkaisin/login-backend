@@ -146,9 +146,9 @@ async def get_daily_fiat_history_async_task():
     # Récupération des données journalières
     daily_histories = get_history_ohlc_mutliple_symbols(symbols, exchanges, n_bars=10, interval=Interval.in_daily)
 
-    # Dates pour les 3 derniers jours
+    # Dates pour les 10 derniers jours
     target_dates = sorted(
-        {(datetime.now() - timedelta(days=i + 1)).replace(hour=0, minute=0, second=0, microsecond=0) for i in range(3)}
+        {(datetime.now() - timedelta(days=i + 1)).replace(hour=0, minute=0, second=0, microsecond=0) for i in range(10)}
     )
 
     fiat_histories = []

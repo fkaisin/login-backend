@@ -102,7 +102,7 @@ class HistoryService:
         result = task_result['result']
         ignored_tokens = task_result['ignored_tokens']
 
-        # Ajout colonne des totaux en fiats
+        # Ajout colonne des totaux en fiat_usd
 
         for fiat_id in [f for f in settings.FIATS if f != 'fiat_usd']:
             min_date = result[0]['index'] - timedelta(days=20)
@@ -130,10 +130,11 @@ class HistoryService:
                 else:
                     row[f'total_{fiat_id}'] = 0.0
 
-        # Fin ajout de la colonne en fiat
+        # Fin ajout de la colonne en fiat_usd
 
         # Ajout des colonnes cash in
         # -------------------------------------------------------------------------------------------------------------------------
+
         df_result = pd.DataFrame(result)
         df_result['index'] = pd.to_datetime(df_result['index']).dt.normalize()
         df_result = df_result.set_index('index')
@@ -149,9 +150,23 @@ class HistoryService:
         cash_in_series['cash_in_fiat_usd'].fillna(0, inplace=True)
 
         df_result['cash_in_fiat_usd'] = cash_in_series
-        print(df_result)
 
+        # -------------------------------------------------------------------------------------------------------------------------
         # Fin ajout des colonnes cash in
+
+        # Ajout des colonnes performances en %
+        # -------------------------------------------------------------------------------------------------------------------------
+
+        df_result['cash_in_usd_percent'] = df_result['total_fiat_usd'] / df_result['cash_in_fiat_usd'].replace(0, pd.NA)
+        df_result['cash_in_usd_percent'] = df_result['cash_in_usd_percent'].fillna(0)
+
+        # -------------------------------------------------------------------------------------------------------------------------
+        # Fin ajout des colonnes performances en %
+
+        print('-' * 80)
+        print('df_result:')
+        print('-' * 80)
+        print(df_result)
 
         # Supprimer les anciens historiques pour cet utilisateur
         statement = select(UserPfHistory).where(UserPfHistory.user_id == current_user_uid)
