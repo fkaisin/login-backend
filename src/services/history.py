@@ -139,14 +139,20 @@ class HistoryService:
         df_result = df_result.set_index('index')
 
         cash_in_usd = await get_cash_in_usd(transactions_data, df_result)
+        print(cash_in_usd)
 
         df_cash_in_usd = pd.DataFrame(cash_in_usd)
         df_cash_in_usd['date'] = df_cash_in_usd['date'].dt.normalize()
         df_cash_in_usd = df_cash_in_usd.set_index('date')
         df_cash_in_usd = df_cash_in_usd[~df_cash_in_usd.index.duplicated(keep='last')]
+        print(df_cash_in_usd)
 
+        # cash_in_series = df_cash_in_usd.reindex(df_result.index, method='ffill')
+        # cash_in_series['cash_in_fiat_usd'].fillna(0, inplace=True)
         cash_in_series = df_cash_in_usd.reindex(df_result.index, method='ffill')
-        cash_in_series['cash_in_fiat_usd'].fillna(0, inplace=True)
+        cash_in_series['cash_in_fiat_usd'] = cash_in_series['cash_in_fiat_usd'].fillna(0)
+
+        print(cash_in_series)
 
         df_result['cash_in_fiat_usd'] = cash_in_series
         print(df_result)
