@@ -12,7 +12,7 @@ from src.celery.tasks import compute_pf_history_task, wait_for_celery_result
 from src.config import settings
 from src.db.models import DtaoCgList, FiatHistory, Token, Transaction, User, UserPfHistory
 from src.schemes.token import Ticker
-from src.utils.calculations import get_cash_in_usd
+from src.utils.calculations import get_cash_in_fiat, get_cash_in_usd
 from src.utils.tvdatafeed import find_longest_history, get_history_ohlc_single_symbol, get_tv_search
 
 
@@ -23,7 +23,7 @@ class HistoryService:
     async def build_portfolio_df(self, current_user_id):
         # Récupération des transactions de l'utilisateur
         statement = select(Transaction).where(Transaction.user_id == current_user_id)
-        transactions = (await self.session.exec(statement)).all()
+        transactions = list((await self.session.exec(statement)).all())
         transactions.sort(key=lambda t: t.date)
 
         # Dictionnaire pour suivre les quantités cumulées
@@ -47,7 +47,7 @@ class HistoryService:
                 if trx.actif_a_id:
                     asset_quantities[trx.actif_a_id] += trx.qty_a
                 if trx.actif_v_id:
-                    asset_quantities[trx.actif_v_id] -= trx.qty_a * trx.price
+                    asset_quantities[trx.actif_v_id] -= trx.qty_a * (trx.price or 0)
             elif trx.type in ['Depot', 'Interets', 'Airdrop', 'Emprunt']:
                 if trx.actif_a_id:
                     asset_quantities[trx.actif_a_id] += trx.qty_a
@@ -56,7 +56,7 @@ class HistoryService:
                     asset_quantities[trx.actif_a_id] -= trx.qty_a
 
             if trx.actif_f_id:
-                asset_quantities[trx.actif_f_id] -= trx.qty_f
+                asset_quantities[trx.actif_f_id] -= trx.qty_f or 0
 
             # Enregistre l'état courant pour les tokens affectés
             for token_id in tokens:
@@ -83,24 +83,33 @@ class HistoryService:
 
         # get_cash_in_usd(transactions_data)
 
-        # Lancement de la tâche Celery
-        async_result = compute_pf_history_task.delay(df_qty_json, tv_list_data, transactions_data)
+        # Tache sans celery (work pc)
+        # -------------------------------------------------------------------------------------
+        async_result = compute_pf_history_task(df_qty_json, tv_list_data, transactions_data)
+        result = async_result['result']
+        ignored_tokens = async_result['ignored_tokens']
+        # -------------------------------------------------------------------------------------
 
-        # ⏳ Attente non bloquante du résultat
-        try:
-            task_result = await wait_for_celery_result(async_result.id, timeout=300)
-        except TimeoutError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail='Délai dépassé pour le calcul du portefeuille.'
-            )
+        # Tache celery (home pc)
+        # -------------------------------------------------------------------------------------
+        # async_result = compute_pf_history_task.delay(df_qty_json, tv_list_data, transactions_data)
 
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Erreur dans la tâche Celery : {str(e)}'
-            )
+        # # ⏳ Attente non bloquante du résultat
+        # try:
+        #     task_result = await wait_for_celery_result(async_result.id, timeout=300)
+        # except TimeoutError:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_400_BAD_REQUEST, detail='Délai dépassé pour le calcul du portefeuille.'
+        #     )
 
-        result = task_result['result']
-        ignored_tokens = task_result['ignored_tokens']
+        # except Exception as e:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Erreur dans la tâche Celery : {str(e)}'
+        #     )
+
+        # result = task_result['result']
+        # ignored_tokens = task_result['ignored_tokens']
+        # -------------------------------------------------------------------------------------
 
         # Ajout colonne des totaux en fiat_usd
 
@@ -132,24 +141,36 @@ class HistoryService:
 
         # Fin ajout de la colonne en fiat_usd
 
-        # Ajout des colonnes cash in
-        # -------------------------------------------------------------------------------------------------------------------------
-
         df_result = pd.DataFrame(result)
         df_result['index'] = pd.to_datetime(df_result['index']).dt.normalize()
         df_result = df_result.set_index('index')
 
-        cash_in_usd = await get_cash_in_usd(transactions_data, df_result)
+        # Ajout des colonnes cash in
+        # -------------------------------------------------------------------------------------------------------------------------
 
-        df_cash_in_usd = pd.DataFrame(cash_in_usd)
-        df_cash_in_usd['date'] = df_cash_in_usd['date'].dt.normalize()
-        df_cash_in_usd = df_cash_in_usd.set_index('date')
-        df_cash_in_usd = df_cash_in_usd[~df_cash_in_usd.index.duplicated(keep='last')]
+        async def process_cash_in(transactions_data, df_result, fiat='fiat_usd'):
+            if fiat == 'fiat_usd':
+                # USD
+                cash_in = await get_cash_in_usd(transactions_data, df_result)
+                col_name = 'cash_in_fiat_usd'
+            else:
+                # autres FIATS
+                cash_in = await get_cash_in_fiat(transactions_data, df_result, fiat)
+                col_name = f'cash_in_{fiat}'
 
-        cash_in_series = df_cash_in_usd.reindex(df_result.index, method='ffill')
-        cash_in_series['cash_in_fiat_usd'].fillna(0, inplace=True)
+            df_cash_in = pd.DataFrame(cash_in)
+            df_cash_in['date'] = df_cash_in['date'].dt.normalize()
+            df_cash_in = df_cash_in.set_index('date')
+            df_cash_in = df_cash_in[~df_cash_in.index.duplicated(keep='last')]
 
-        df_result['cash_in_fiat_usd'] = cash_in_series
+            cash_in_series = df_cash_in.reindex(df_result.index, method='ffill')
+            # cash_in_series[col_name].fillna(0, inplace=True)
+            cash_in_series[col_name] = cash_in_series[col_name].fillna(0)
+
+            df_result[col_name] = cash_in_series[col_name]
+
+        for fiat in settings.FIATS:
+            await process_cash_in(transactions_data, df_result, fiat=fiat)
 
         # -------------------------------------------------------------------------------------------------------------------------
         # Fin ajout des colonnes cash in
@@ -157,16 +178,14 @@ class HistoryService:
         # Ajout des colonnes performances en %
         # -------------------------------------------------------------------------------------------------------------------------
 
-        df_result['cash_in_usd_percent'] = df_result['total_fiat_usd'] / df_result['cash_in_fiat_usd'].replace(0, pd.NA)
-        df_result['cash_in_usd_percent'] = df_result['cash_in_usd_percent'].fillna(0)
+        for fiat in settings.FIATS:
+            df_result[f'cash_in_{fiat}_percent'] = df_result[f'total_{fiat}'] / df_result[f'cash_in_{fiat}'].replace(
+                0, pd.NA
+            )
+            df_result[f'cash_in_{fiat}_percent'] = df_result[f'cash_in_{fiat}_percent'].fillna(0)
 
         # -------------------------------------------------------------------------------------------------------------------------
         # Fin ajout des colonnes performances en %
-
-        print('-' * 80)
-        print('df_result:')
-        print('-' * 80)
-        print(df_result)
 
         # Supprimer les anciens historiques pour cet utilisateur
         statement = select(UserPfHistory).where(UserPfHistory.user_id == current_user_uid)
@@ -179,7 +198,7 @@ class HistoryService:
         await self.session.commit()
 
         # Ajouter les nouvelles données
-        for row in result:
+        for row in df_result.reset_index().to_dict(orient='records'):
             new_item = UserPfHistory(
                 user_id=current_user_uid,
                 date=row['index'],
@@ -187,6 +206,14 @@ class HistoryService:
                 value_in_eur=row['total_fiat_eur'],
                 value_in_cad=row['total_fiat_cad'],
                 value_in_chf=row['total_fiat_chf'],
+                cash_in_usd=row['cash_in_fiat_usd'],
+                cash_in_eur=row['cash_in_fiat_eur'],
+                cash_in_cad=row['cash_in_fiat_cad'],
+                cash_in_chf=row['cash_in_fiat_chf'],
+                cash_in_percent_usd=row['cash_in_fiat_usd_percent'],
+                cash_in_percent_eur=row['cash_in_fiat_eur_percent'],
+                cash_in_percent_cad=row['cash_in_fiat_cad_percent'],
+                cash_in_percent_chf=row['cash_in_fiat_chf_percent'],
             )
             self.session.add(new_item)
 
@@ -320,17 +347,17 @@ async def get_dtao_history(ticker: str, token: str):
             }
         )
 
-    df.set_index('datetime', inplace=True)
+        df.set_index('datetime', inplace=True)
 
-    df_tao = get_history_ohlc_single_symbol('TAOUSDT', 'MEXC')
+        df_tao = get_history_ohlc_single_symbol('TAOUSDT', 'MEXC')
 
-    df.index = pd.to_datetime(df.index).normalize()
-    df_tao.index = pd.to_datetime(df_tao.index).normalize()
+        df.index = pd.to_datetime(df.index).normalize()
+        df_tao.index = pd.to_datetime(df_tao.index).normalize()
 
-    df_combined = df.join(df_tao[['close']], rsuffix='_tao', how='left')
-    df_combined['close'] = df_combined['close'] * df_combined['close_tao']
+        df_combined = df.join(df_tao[['close']], rsuffix='_tao', how='left')
+        df_combined['close'] = df_combined['close'] * df_combined['close_tao']
 
-    df = df_combined
-    df = df[~df.index.duplicated(keep='first')]
+        df = df_combined
+        df = df[~df.index.duplicated(keep='first')]
 
-    return df
+        return df
