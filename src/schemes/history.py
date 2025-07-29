@@ -13,7 +13,7 @@ class UserHistoryBase(SQLModel):
     cash_in_eur: float
     cash_in_cad: float
     cash_in_chf: float
-    cash_in_percent_usd: float
-    cash_in_percent_eur: float
-    cash_in_percent_cad: float
-    cash_in_percent_chf: float
+    pnl_percent_fiat_usd: float
+    pnl_percent_fiat_eur: float
+    pnl_percent_fiat_cad: float
+    pnl_percent_fiat_chf: float

@@ -85,30 +85,30 @@ class HistoryService:
 
         # Tache sans celery (work pc)
         # -------------------------------------------------------------------------------------
-        async_result = compute_pf_history_task(df_qty_json, tv_list_data, transactions_data)
-        result = async_result['result']
-        ignored_tokens = async_result['ignored_tokens']
+        # async_result = compute_pf_history_task(df_qty_json, tv_list_data, transactions_data)
+        # result = async_result['result']
+        # ignored_tokens = async_result['ignored_tokens']
         # -------------------------------------------------------------------------------------
 
         # Tache celery (home pc)
         # -------------------------------------------------------------------------------------
-        # async_result = compute_pf_history_task.delay(df_qty_json, tv_list_data, transactions_data)
+        async_result = compute_pf_history_task.delay(df_qty_json, tv_list_data, transactions_data)
 
-        # # ⏳ Attente non bloquante du résultat
-        # try:
-        #     task_result = await wait_for_celery_result(async_result.id, timeout=300)
-        # except TimeoutError:
-        #     raise HTTPException(
-        #         status_code=status.HTTP_400_BAD_REQUEST, detail='Délai dépassé pour le calcul du portefeuille.'
-        #     )
+        # ⏳ Attente non bloquante du résultat
+        try:
+            task_result = await wait_for_celery_result(async_result.id, timeout=300)
+        except TimeoutError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail='Délai dépassé pour le calcul du portefeuille.'
+            )
 
-        # except Exception as e:
-        #     raise HTTPException(
-        #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Erreur dans la tâche Celery : {str(e)}'
-        #     )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Erreur dans la tâche Celery : {str(e)}'
+            )
 
-        # result = task_result['result']
-        # ignored_tokens = task_result['ignored_tokens']
+        result = task_result['result']
+        ignored_tokens = task_result['ignored_tokens']
         # -------------------------------------------------------------------------------------
 
         # Ajout colonne des totaux en fiat_usd
@@ -179,10 +179,10 @@ class HistoryService:
         # -------------------------------------------------------------------------------------------------------------------------
 
         for fiat in settings.FIATS:
-            df_result[f'cash_in_{fiat}_percent'] = df_result[f'total_{fiat}'] / df_result[f'cash_in_{fiat}'].replace(
-                0, pd.NA
+            df_result[f'pnl_percent_{fiat}'] = (
+                df_result[f'total_{fiat}'] / df_result[f'cash_in_{fiat}'].replace(0, pd.NA) - 1
             )
-            df_result[f'cash_in_{fiat}_percent'] = df_result[f'cash_in_{fiat}_percent'].fillna(0)
+            df_result[f'pnl_percent_{fiat}'] = df_result[f'pnl_percent_{fiat}'].fillna(0)
 
         # -------------------------------------------------------------------------------------------------------------------------
         # Fin ajout des colonnes performances en %
@@ -210,10 +210,10 @@ class HistoryService:
                 cash_in_eur=row['cash_in_fiat_eur'],
                 cash_in_cad=row['cash_in_fiat_cad'],
                 cash_in_chf=row['cash_in_fiat_chf'],
-                cash_in_percent_usd=row['cash_in_fiat_usd_percent'],
-                cash_in_percent_eur=row['cash_in_fiat_eur_percent'],
-                cash_in_percent_cad=row['cash_in_fiat_cad_percent'],
-                cash_in_percent_chf=row['cash_in_fiat_chf_percent'],
+                pnl_percent_fiat_usd=row['pnl_percent_fiat_usd'],
+                pnl_percent_fiat_eur=row['pnl_percent_fiat_eur'],
+                pnl_percent_fiat_cad=row['pnl_percent_fiat_cad'],
+                pnl_percent_fiat_chf=row['pnl_percent_fiat_chf'],
             )
             self.session.add(new_item)
 

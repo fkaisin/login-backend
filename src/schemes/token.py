@@ -30,7 +30,7 @@ class TokenPublicAsset(SQLModel):
     name: str
     symbol: str
     price: float
-    image: str
+    image: str | None
     updated_at: datetime
 
 

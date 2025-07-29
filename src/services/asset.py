@@ -82,9 +82,9 @@ class AssetService:
             assets = list(results.all())
 
             # Supprimer fiat et valeur < $0.01
-            for asset in assets[:]:  # Crée une copie de la liste pour l'itération pour ne pas sauter certains éléments
-                if asset.qty * asset.token.price < 0.01 or asset.token.cg_id.startswith('fiat_'):
-                    assets.remove(asset)
+            # for asset in assets[:]:  # Crée une copie de la liste pour l'itération pour ne pas sauter certains éléments
+            #     if asset.qty * asset.token.price < 0.01 or asset.token.cg_id.startswith('fiat_'):
+            #         assets.remove(asset)
 
             # Pour ne pas rentrer dans une boucle infinie
             if refresh and len(assets) == 0:

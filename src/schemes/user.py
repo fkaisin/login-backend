@@ -18,6 +18,7 @@ class UserPublic(UserBase):
     created_at: datetime
     updated_at: datetime
     rank: int = 1020
+    fiat_id: str
 
 
 class UserUpdateAdmin(SQLModel):
