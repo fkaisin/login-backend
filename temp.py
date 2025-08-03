@@ -4,10 +4,11 @@ from datetime import datetime
 
 from sqlmodel import Session, create_engine, select, text
 from src.db.main import get_session
-from src.db.models import Transaction, User
+from src.db.models import Transaction, User, UserPfHistory
 from src.schemes.token import Ticker
 from src.services.history import HistoryService
 from src.utils.asset import get_fiat_price
+from src.utils.calculations import get_current_pf_value, get_current_total_pnl
 from src.utils.decoration import timeit
 from src.utils.tvdatafeed import (
     find_longest_history,
@@ -96,7 +97,7 @@ def main_tradingview():
 async def get_cash_in():
     from src.utils.calculations import get_cash_in_usd
 
-    user_uid = uuid.UUID('197ea9b4fed7402dbffc6e569280e972')  # test
+    # user_uid = uuid.UUID('197ea9b4fed7402dbffc6e569280e972')  # test
     user_uid = uuid.UUID('979863c4ba2b47998417dfca58aa477f')  # fkaisin
     async for session in get_session():
         # statement = select(Transaction).where(Transaction.user_id == user_uid)
@@ -111,6 +112,23 @@ async def get_cash_in():
         await HistoryService(session).calculate_histo_pf(user_uid, exchange_list)
 
 
+async def reset_pf_history():
+    # user_uid = uuid.UUID('197ea9b4fed7402dbffc6e569280e972')  # test
+    user_uid = uuid.UUID('979863c4ba2b47998417dfca58aa477f')  # fkaisin
+    # user_uid = uuid.UUID('4d93b96b5d3f40d586e6aebca28a3045')  # ariane
+    async for session in get_session():
+        user = await session.get(User, user_uid)
+        user.history_init = False
+        session.add(user)
+        await session.commit()
+        res = await session.exec(select(UserPfHistory).where(UserPfHistory.user_id == user_uid))
+        results = res.all()
+        for r in results:
+            await session.delete(r)
+        await session.commit()
+
+
 if __name__ == '__main__':
     # main_tradingview()
     asyncio.run(get_cash_in())
+    # asyncio.run(reset_pf_history())

@@ -3,6 +3,7 @@ import uuid
 from fastapi import HTTPException, status
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from src.celery.tasks import get_total_pnl_task
 from src.db.models import User
 from src.schemes.user import UserParamsUpdate, UserUpdate, UserUpdateAdmin
 from src.utils.dbcheck import (
@@ -184,8 +185,27 @@ class UserService:
 
     async def update_params(self, user_uid: uuid.UUID, params: UserParamsUpdate):
         params_to_update = params.model_dump(exclude_unset=True)
+
         user_db = await self.session.get(User, user_uid)
+
         if user_db is not None:
+            if 'fiat_id' in params_to_update:
+                old_fiat = user_db.fiat_id
+                new_fiat = params_to_update['fiat_id']
+                user_id = user_db.uid
+
+                # On met le cash in pour l'ancien fiat à 0 si différent de usd
+                fiat_field_map = {
+                    'fiat_eur': 'cash_in_eur',
+                    'fiat_cad': 'cash_in_cad',
+                    'fiat_chf': 'cash_in_chf',
+                }
+                field = fiat_field_map.get(old_fiat)
+                field and setattr(user_db, field, 0)
+
+                if new_fiat in fiat_field_map:
+                    get_total_pnl_task.delay(user_id=user_id, fiat=new_fiat)
+
             user_db.sqlmodel_update(params_to_update)
             self.session.add(user_db)
             await self.session.commit()

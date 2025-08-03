@@ -4,15 +4,21 @@ from src.db.models import Token
 
 
 class TokenService:
-  def __init__(self, session: AsyncSession):
-    self.session = session
+    def __init__(self, session: AsyncSession):
+        self.session = session
 
-  async def search_tokens(self, search_string):
-    search = f'%{search_string}%'
-    statement = select(Token).where(
-      or_(Token.symbol.ilike(search), Token.cg_id.ilike(search), Token.name.ilike(search))  # type: ignore
-    )
-    result = await self.session.exec(statement)
-    tokens = result.all()
+    async def search_tokens(self, search_string):
+        search = f'%{search_string}%'
+        statement = select(Token).where(
+            or_(Token.symbol.ilike(search), Token.cg_id.ilike(search), Token.name.ilike(search))  # type: ignore
+        )
+        result = await self.session.exec(statement)
+        tokens = result.all()
 
-    return tokens
+        return tokens
+
+    async def get_token(self, search_string):
+        result = await self.session.get(Token, search_string)
+        print(result)
+
+        return result

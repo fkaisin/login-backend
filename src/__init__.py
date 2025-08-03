@@ -8,6 +8,7 @@ from src.celery.asyncio_tasks import start_periodic_task
 from src.db.main import engine, init_db
 from src.routes.asset import router as asset_router
 from src.routes.auth import router as auth_router
+from src.routes.charts import router as chart_router
 from src.routes.history import router as histo_router
 from src.routes.token import router as token_router
 from src.routes.transaction import router as transaction_router
@@ -50,3 +51,4 @@ app.include_router(transaction_router)
 app.include_router(token_router)
 app.include_router(asset_router)
 app.include_router(histo_router)
+app.include_router(chart_router)

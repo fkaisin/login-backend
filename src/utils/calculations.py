@@ -1,7 +1,9 @@
+import uuid
 from collections import defaultdict
 from datetime import datetime
 
 import pandas as pd
+from sqlalchemy.orm import selectinload
 from sqlmodel import desc, select
 from src.config import settings
 from src.db.main import get_session
@@ -10,6 +12,9 @@ from src.schemes.transaction import TransactionCreate
 
 async def get_fiat_price(fiat, date, session):
     from src.db.models import FiatHistory
+
+    if fiat == 'fiat_usd':
+        return 1
 
     price = None
     # count = 0
@@ -286,3 +291,94 @@ async def calculate_transaction_value_in_fiat(t: TransactionCreate, fiat: str):
 def get_pf_value_at_date(date: datetime, df_history: pd.DataFrame, fiat: str = 'fiat_usd'):
     date = date.replace(hour=0, minute=0, second=0, microsecond=0)
     return df_history.at[date, f'total_{fiat}']
+
+
+async def get_current_pf_value(user_id: uuid.UUID, fiat: str = 'fiat_usd'):
+    from src.db.models import Asset, Token
+    from src.schemes.asset import AssetPublic
+    from src.services.asset import AssetService
+
+    rate = 1
+
+    async for session in get_session():
+        await AssetService(session).update_user_assets(user_id)
+
+        if fiat != 'fiat_usd':
+            result = await session.get(Token, fiat)
+            rate = 1 / result.price
+
+        stmt = select(Asset).where(Asset.user_id == user_id).options(selectinload(Asset.token))
+        result = await session.exec(stmt)
+        assets = result.all()
+
+    sum_value = 0
+
+    for asset in assets:
+        current_asset = AssetPublic.model_validate(asset)
+        if current_asset.token.cg_id not in settings.FIATS:
+            sum_value += current_asset.value
+
+    sum_value *= rate
+
+    return sum_value
+
+
+async def get_current_total_pnl(user_id: uuid.UUID, fiat: str = 'fiat_usd'):
+    from src.db.models import Transaction, User, UserPfHistory
+
+    async for session in get_session():
+        # Récupération des transactions
+        stmt = select(Transaction).where(Transaction.user_id == user_id)
+        result = await session.exec(stmt)
+        transactions = result.all()
+        transactions_dicts = [tr.model_dump() for tr in transactions]
+
+        # Récupération de l’historique du portefeuille
+        stmt = select(UserPfHistory).where(UserPfHistory.user_id == user_id)
+        result = await session.exec(stmt)
+        pf_hist = result.all()
+
+    # Nom dynamique de l'attribut de valeur
+    value_attr = f'value_in_{fiat.split("_")[1]}'  # ex: value_in_usd / value_in_eur
+
+    # Construction des données (dates + valeurs dynamiques)
+    data = [(entry.date, getattr(entry, value_attr)) for entry in pf_hist]
+
+    # Ajout de la valeur actuelle du portefeuille
+    current_pf_value = await get_current_pf_value(user_id, fiat=fiat)
+    data.append((datetime.today().replace(hour=0, minute=0, second=0, microsecond=0), current_pf_value))
+
+    # Création du DataFrame
+    column_name = f'total_{fiat}'
+    df = pd.DataFrame(data, columns=['date', column_name])
+    df.set_index('date', inplace=True)
+    df.sort_index(inplace=True)
+
+    # Appel dynamique à la fonction
+    if fiat == 'fiat_usd':
+        cash_in_array = await get_cash_in_usd(transactions_dicts, df)
+    else:
+        cash_in_array = await get_cash_in_fiat(transactions_dicts, df, fiat=fiat)
+
+    # Accès à la bonne clé finale
+    cash_key = f'cash_in_{fiat}'
+    current_cash_in = cash_in_array[-1][cash_key]
+
+    # current_pnl_percent = current_pf_value / current_cash_in
+    # current_pnl_value = current_pf_value - current_cash_in
+
+    async for session in get_session():
+        user_db = await session.get(User, user_id)
+
+        attr_name = f'cash_in_{fiat.split("_")[1]}'
+        setattr(user_db, attr_name, current_cash_in)
+
+        session.add(user_db)
+        await session.commit()
+
+    # return {
+    #     'current_cash_in': current_cash_in,
+    #     'current_pf_value': current_pf_value,
+    #     'current_pnl_percent': current_pnl_percent,
+    #     'current_pnl_value': current_pnl_value,
+    # }

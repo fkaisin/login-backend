@@ -4,6 +4,7 @@ import logging
 from celery import Celery
 from celery.result import AsyncResult
 from celery.schedules import crontab
+from src.celery.charts import get_total_pnl
 from src.celery.coingecko import coingecko_async_task
 from src.celery.fiat import fiat_realtime_async_task, get_daily_fiat_history_async_task
 from src.celery.histo import compute_pf_history
@@ -29,6 +30,9 @@ def setup_periodic_tasks(sender: Celery, **kwargs):
     sender.add_periodic_task(crontab(minute=0, hour=1), daily_fiat_history_task.s(), name='dailyfiat 1h du matin')
 
 
+# ------------ periodic functions --------------
+
+
 @app.task
 def coingecko_task():
     logger.info('>>> Lancement de la tâche coingecko_task')
@@ -47,19 +51,25 @@ def daily_fiat_history_task():
     asyncio.run(get_daily_fiat_history_async_task())
 
 
+# ------------ delayed functions --------------
+
+
 @app.task(name='compute_pf_history_task')
 def compute_pf_history_task(df_qty_json, tv_list_data, transactions):
     return compute_pf_history(df_qty_json, tv_list_data, transactions)
 
 
-# reconstruire l'historique via l'appel à taostats.io ?
+@app.task(name='get_total_pnl_task')
+def get_total_pnl_task(user_id, fiat='fiat_usd'):
+    return get_total_pnl(user_id, fiat)
+
 
 # Tache journalière pour archiver la valeur du portefeuille ?
 
 # Nettoyer la db token si pas utilisé et délai plus de X heures
 
 
-async def wait_for_celery_result(task_id: str, timeout: int = 60, poll_interval: int = 2):
+async def wait_for_celery_result(task_id: str, timeout: int = 60, poll_interval: int = 0.5):
     """
     Attend un résultat Celery de manière asynchrone (avec timeout).
     """

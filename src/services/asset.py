@@ -30,7 +30,7 @@ class AssetService:
                 token_ids.add(trx.actif_v_id)
                 token_ids.add(trx.actif_f_id)
             token_ids.discard(None)
-            print(token_ids)
+            # print(token_ids)
 
             assets_dict = {asset.token_id: asset for asset in user.assets}
 

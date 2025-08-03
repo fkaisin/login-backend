@@ -96,7 +96,7 @@ class HistoryService:
 
         # ⏳ Attente non bloquante du résultat
         try:
-            task_result = await wait_for_celery_result(async_result.id, timeout=300)
+            task_result = await wait_for_celery_result(async_result.id, timeout=300, poll_interval=2)
         except TimeoutError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail='Délai dépassé pour le calcul du portefeuille.'
@@ -164,7 +164,6 @@ class HistoryService:
             df_cash_in = df_cash_in[~df_cash_in.index.duplicated(keep='last')]
 
             cash_in_series = df_cash_in.reindex(df_result.index, method='ffill')
-            # cash_in_series[col_name].fillna(0, inplace=True)
             cash_in_series[col_name] = cash_in_series[col_name].fillna(0)
 
             df_result[col_name] = cash_in_series[col_name]
@@ -195,6 +194,11 @@ class HistoryService:
         for record in old_records:
             await self.session.delete(record)
 
+        # On passe le paramètre d'initialisation du pf à false
+        usr = await self.session.get(User, current_user_uid)
+        usr.history_init = False
+        self.session.add(usr)
+
         await self.session.commit()
 
         # Ajouter les nouvelles données
@@ -217,19 +221,12 @@ class HistoryService:
             )
             self.session.add(new_item)
 
-        await self.session.commit()
+        # On passe le paramètre d'initialisation du pf à true
+        usr = await self.session.get(User, current_user_uid)
+        usr.history_init = True
+        self.session.add(usr)
 
-        # Tracer la courbe
-        # import matplotlib.pyplot as plt
-        # plt.figure(figsize=(12, 6))
-        # plt.plot(df_totals.index, df_totals['total_fiat_usd'], label='Valeur totale', color='royalblue')
-        # plt.title('Évolution de la valeur totale du portefeuille')
-        # plt.xlabel('Date')
-        # plt.ylabel('Total (€ ou $)')
-        # plt.grid(True)
-        # plt.legend()
-        # plt.tight_layout()
-        # plt.savefig('plot_portefeuille.png')  # ou JPG, PDF, etc.
+        await self.session.commit()
 
         if len(ignored_tokens) > 0:
             response = {

@@ -16,9 +16,14 @@ class User(UserBase, table=True):
     hashed_password: str
     rank: int = 1020
     fiat_id: str = Field(default='fiat_eur', foreign_key='tokens.cg_id')
-    calc_method_display: str = 'weighted average'
-    calc_method_tax: str = 'fifo'
-    tax_principle: str = 'pv'
+    calc_method_display: str = Field(default='weighted average')
+    calc_method_tax: str = Field(default='fifo')
+    tax_principle: str = Field(default='pv')
+    history_init: bool = Field(default=False)
+    cash_in_usd: float = Field(default=0.0)
+    cash_in_eur: float = Field(default=0.0)
+    cash_in_cad: float = Field(default=0.0)
+    cash_in_chf: float = Field(default=0.0)
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now, sa_column_kwargs={'onupdate': datetime.now})
 

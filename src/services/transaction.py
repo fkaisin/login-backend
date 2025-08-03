@@ -7,6 +7,7 @@ from sqlalchemy.exc import NoResultFound, SQLAlchemyError
 from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from src.celery.tasks import get_total_pnl_task
 from src.db.models import Token, Transaction, User
 from src.services.asset import AssetService
 
@@ -36,8 +37,11 @@ class TransactionService:
 
         return sorted(user_with_tx.transactions, key=lambda trx: trx.date, reverse=True) if user_with_tx else []
 
-    async def create_transactions(self, trx_data, current_user_uid):
-        extra_data = {'user_id': current_user_uid}
+    async def create_transactions(self, trx_data, current_user: User):
+        user_id = current_user.uid
+        fiat = current_user.fiat_id
+
+        extra_data = {'user_id': user_id}
         try:
             db_trx = Transaction.model_validate(trx_data, update=extra_data)
             self.session.add(db_trx)
@@ -61,7 +65,11 @@ class TransactionService:
                     status_code=status.HTTP_404_NOT_FOUND, detail='Transaction not found after creation'
                 )
 
-            await self.update_assets_from_transaction(transaction_with_relations, current_user_uid)  # Update Assets
+            await self.update_assets_from_transaction(transaction_with_relations, user_id)  # Update Assets
+
+            get_total_pnl_task.delay(user_id=user_id, fiat='fiat_usd')
+            if fiat != 'fiat_usd':
+                get_total_pnl_task.delay(user_id=user_id, fiat=fiat)
 
             return transaction_with_relations
 
@@ -77,7 +85,9 @@ class TransactionService:
             await self.session.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Unexpected error')
 
-    async def delete_transaction(self, trx_id, current_user_uid):
+    async def delete_transaction(self, trx_id, current_user: User):
+        user_id = current_user.uid
+        fiat = current_user.fiat_id
         trx_uid = uuid.UUID(trx_id)
 
         try:
@@ -92,7 +102,7 @@ class TransactionService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Error retrieving transaction: {str(err)}'
             ) from err
 
-        if trx_to_delete.user_id != current_user_uid:
+        if trx_to_delete.user_id != user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,  # 403 = interdit
                 detail='You are not authorized to delete this transaction.',
@@ -101,7 +111,12 @@ class TransactionService:
         try:
             await self.session.delete(trx_to_delete)
             await self.session.commit()
-            await self.update_assets_from_transaction(trx_to_delete, current_user_uid)
+            await self.update_assets_from_transaction(trx_to_delete, user_id)
+
+            get_total_pnl_task.delay(user_id=user_id, fiat='fiat_usd')
+            if fiat != 'fiat_usd':
+                get_total_pnl_task.delay(user_id=user_id, fiat=fiat)
+
             return JSONResponse(status_code=status.HTTP_200_OK, content={'detail': 'Transaction deleted successfully.'})
 
         except SQLAlchemyError as e:
@@ -114,7 +129,10 @@ class TransactionService:
             await self.session.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'Unexpected error: {str(e)}')
 
-    async def update_transactions(self, trx_data):
+    async def update_transactions(self, trx_data, current_user: User):
+        user_id = current_user.uid
+        fiat = current_user.fiat_id
+
         try:
             db_trx = Transaction.model_validate(trx_data)
 
@@ -143,9 +161,9 @@ class TransactionService:
             statement = (
                 select(Transaction)
                 .options(
-                    joinedload(Transaction.actif_a).load_only(Token.symbol, Token.rank, Token.name),  # type: ignore
-                    joinedload(Transaction.actif_v).load_only(Token.symbol, Token.rank, Token.name),  # type: ignore
-                    joinedload(Transaction.actif_f).load_only(Token.symbol, Token.rank, Token.name),  # type: ignore
+                    joinedload(Transaction.actif_a).load_only(Token.symbol, Token.rank, Token.name),
+                    joinedload(Transaction.actif_v).load_only(Token.symbol, Token.rank, Token.name),
+                    joinedload(Transaction.actif_f).load_only(Token.symbol, Token.rank, Token.name),
                 )
                 .where(Transaction.id == db_trx.id)
             )
@@ -154,6 +172,10 @@ class TransactionService:
             transaction_with_relations = result.first()
 
             await self.update_assets_from_transaction(transaction_with_relations, transaction_with_relations.user_id)
+
+            get_total_pnl_task.delay(user_id=user_id, fiat='fiat_usd')
+            if fiat != 'fiat_usd':
+                get_total_pnl_task.delay(user_id=user_id, fiat=fiat)
 
             return transaction_with_relations
 

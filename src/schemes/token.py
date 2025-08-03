@@ -25,6 +25,11 @@ class TokenPublicSmall(SQLModel):
     rank: int
 
 
+class TokenPublicPrice(SQLModel):
+    cg_id: str
+    price: float
+
+
 class TokenPublicAsset(SQLModel):
     cg_id: str
     name: str

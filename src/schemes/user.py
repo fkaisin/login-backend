@@ -19,6 +19,7 @@ class UserPublic(UserBase):
     updated_at: datetime
     rank: int = 1020
     fiat_id: str
+    history_init: bool = False
 
 
 class UserUpdateAdmin(SQLModel):
