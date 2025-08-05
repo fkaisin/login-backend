@@ -1,13 +1,14 @@
 import asyncio
 import uuid
 from datetime import datetime
+from pprint import pprint
 
 from sqlmodel import Session, create_engine, select, text
 from src.db.main import get_session
-from src.db.models import Transaction, User, UserPfHistory
+from src.db.models import Asset, Transaction, User, UserPfHistory
 from src.schemes.token import Ticker
 from src.services.history import HistoryService
-from src.utils.asset import get_fiat_price
+from src.utils.asset import get_asset_qty_by_wallet
 from src.utils.calculations import get_current_pf_value, get_current_total_pnl
 from src.utils.decoration import timeit
 from src.utils.tvdatafeed import (
@@ -94,7 +95,7 @@ def main_tradingview():
     # find_longest_history(symbol)
 
 
-async def get_cash_in():
+async def histo_pf():
     from src.utils.calculations import get_cash_in_usd
 
     # user_uid = uuid.UUID('197ea9b4fed7402dbffc6e569280e972')  # test
@@ -128,7 +129,23 @@ async def reset_pf_history():
         await session.commit()
 
 
+async def test():
+    user_id = uuid.UUID('979863c4ba2b47998417dfca58aa477f')  # fkaisin
+    token = 'bittensor'
+
+    async for session in get_session():
+        result = await session.exec(select(Asset).where(Asset.token_id == token).where(Asset.user_id == user_id))
+        asset = result.first()
+        print(asset)
+
+        statement = select(Transaction).where(Transaction.user_id == user_id).order_by(Transaction.date)
+        results = await session.exec(statement)
+        transactions = results.all()
+        q, w = get_asset_qty_by_wallet(token_id=token, transactions=transactions)
+
+
 if __name__ == '__main__':
     # main_tradingview()
-    asyncio.run(get_cash_in())
+    asyncio.run(histo_pf())
     # asyncio.run(reset_pf_history())
+    # asyncio.run(test())

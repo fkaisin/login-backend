@@ -17,8 +17,8 @@ class AssetService:
                 select(User)
                 .where(User.uid == current_user_uid)
                 .options(
-                    selectinload(User.transactions),  # type: ignore
-                    selectinload(User.assets),  # type: ignore
+                    selectinload(User.transactions),
+                    selectinload(User.assets),
                 )
             )
             result = await self.session.exec(statement)
@@ -42,6 +42,7 @@ class AssetService:
                 else:
                     asset = assets_dict[tok_id]
                     await asset.update_asset(self.session)
+                    print(asset)
                     await self.session.merge(asset)
 
             await self.session.commit()
@@ -69,12 +70,17 @@ class AssetService:
                 select(Asset)
                 .where(Asset.user_id == current_user_uid)
                 .options(
-                    selectinload(Asset.token).load_only(  # type: ignore
-                        Token.symbol,  # type: ignore
-                        Token.price,  # type: ignore
-                        Token.image,  # type: ignore
-                        Token.updated_at,  # type: ignore
-                        Token.name,  # type: ignore
+                    selectinload(Asset.token).load_only(
+                        Token.symbol,
+                        Token.price,
+                        Token.image,
+                        Token.updated_at,
+                        Token.name,
+                        Token.change_1h,
+                        Token.change_24h,
+                        Token.change_7d,
+                        Token.change_30d,
+                        Token.change_1y,
                     )
                 )
             )
@@ -138,8 +144,8 @@ class AssetService:
                 select(User)
                 .where(User.uid == current_user_uid)
                 .options(
-                    selectinload(User.transactions),  # type: ignore
-                    selectinload(User.assets),  # type: ignore
+                    selectinload(User.transactions),
+                    selectinload(User.assets),
                 )
             )
             result = await self.session.exec(statement)

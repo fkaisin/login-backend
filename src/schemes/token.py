@@ -37,6 +37,11 @@ class TokenPublicAsset(SQLModel):
     price: float
     image: str | None
     updated_at: datetime
+    change_1h: float
+    change_24h: float
+    change_7d: float
+    change_30d: float
+    change_1y: float
 
 
 class TokenId(SQLModel):

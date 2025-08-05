@@ -1,3 +1,6 @@
+from collections import defaultdict
+from typing import DefaultDict, List, Tuple
+
 from src.config import settings
 from src.utils.calculations import get_fiat_price
 
@@ -27,6 +30,40 @@ def get_asset_qty(token_id, transactions):
             qty -= trx.qty_f
 
     return qty
+
+
+def get_asset_qty_by_wallet(token_id: str, transactions: List) -> Tuple[float, dict[str, float]]:
+    qty = 0
+    qty_by_wallet = defaultdict(float)
+
+    for trx in transactions:
+        if trx.type in ['Swap', 'Achat', 'Vente']:
+            if trx.actif_a_id == token_id:
+                qty += trx.qty_a
+                qty_by_wallet[f'{trx.destination}'] += trx.qty_a
+            if trx.actif_v_id == token_id:
+                qty -= trx.qty_a * trx.price
+                qty_by_wallet[f'{trx.destination}'] -= trx.qty_a * trx.price
+        elif trx.type in ['Depot', 'Interets', 'Airdrop', 'Emprunt']:
+            if trx.actif_a_id == token_id:
+                qty += trx.qty_a
+                qty_by_wallet[f'{trx.destination}'] += trx.qty_a
+        elif trx.type in ['Retrait', 'Perte', 'Remboursement']:
+            if trx.actif_a_id == token_id:
+                qty -= trx.qty_a
+                qty_by_wallet[f'{trx.destination}'] -= trx.qty_a
+        elif trx.type == 'Transfert' and trx.actif_a_id == token_id:
+            qty_by_wallet[f'{trx.origin}'] -= trx.qty_a
+            qty_by_wallet[f'{trx.destination}'] += trx.qty_a
+        if trx.actif_f_id == token_id:
+            qty -= trx.qty_f
+            wallet = trx.destination if trx.type != 'Transfert' or trx.actif_f_id == trx.actif_a_id else trx.origin
+            qty_by_wallet[wallet] -= trx.qty_f
+
+    qty = max(qty, 0)
+    qty_by_wallet = {f'{key}': max(value, 0) for key, value in qty_by_wallet.items()}
+
+    return qty, qty_by_wallet
 
 
 async def get_asset_mean_buy(token_id, transactions, session):

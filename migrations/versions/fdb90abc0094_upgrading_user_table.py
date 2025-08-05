@@ -53,6 +53,7 @@ def upgrade() -> None:
         batch_op.alter_column('fiat_id', nullable=False)
         batch_op.alter_column('calc_method_display', nullable=False)
         batch_op.alter_column('calc_method_tax', nullable=False)
+        batch_op.alter_column('tax_principle', nullable=False)
         batch_op.alter_column('history_init', nullable=False)
         batch_op.alter_column('cash_in_usd', nullable=False)
         batch_op.alter_column('cash_in_eur', nullable=False)

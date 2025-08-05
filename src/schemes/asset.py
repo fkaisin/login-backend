@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime
 
@@ -7,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Field, SQLModel, select
 from src.db.main import get_session
 from src.schemes.token import TokenPublicAsset
-from src.utils.asset import get_asset_mean_buy, get_asset_qty
+from src.utils.asset import get_asset_mean_buy, get_asset_qty, get_asset_qty_by_wallet
 
 
 class AssetBase(SQLModel):
@@ -17,17 +18,29 @@ class AssetBase(SQLModel):
     qty: float = 0
     mean_buy: float = 0
 
+    qty_by_wallet: str | None = None
+
+    @property
+    def qty_by_wallet_dict(self) -> dict:
+        return json.loads(self.qty_by_wallet or '{}')
+
+    @qty_by_wallet_dict.setter
+    def qty_by_wallet_dict(self, value: dict):
+        self.qty_by_wallet = json.dumps(value)
+
     async def update_asset(self, session):
-        from src.db.models import User
+        from src.db.models import Transaction
 
         try:
-            statement = select(User).where(User.uid == self.user_id).options(selectinload(User.transactions))  # type: ignore
+            statement = select(Transaction).where(Transaction.user_id == self.user_id).order_by(Transaction.date)
             results = await session.exec(statement)
-            user = results.one()
+            transactions = results.all()
 
-            transactions = sorted(user.transactions, key=lambda trx: trx.date)
             try:
-                self.qty = max(get_asset_qty(token_id=self.token_id, transactions=transactions), 0)
+                q, w = get_asset_qty_by_wallet(token_id=self.token_id, transactions=transactions)
+                self.qty = q
+                self.qty_by_wallet_dict = w
+
             except Exception as err:
                 print('erreur dans get_asset_qty')
                 print(err)
@@ -53,6 +66,11 @@ class AssetPublic(SQLModel):
     mean_buy: float = 0
     token: TokenPublicAsset | None = None
     updated_at: datetime
+    qty_by_wallet: str | None = None
+
+    @property
+    def qty_by_wallet_dict(self) -> dict:
+        return json.loads(self.qty_by_wallet or '{}')
 
     @computed_field
     @property
