@@ -69,7 +69,7 @@ def get_total_pnl_task(user_id, fiat='fiat_usd'):
 # Nettoyer la db token si pas utilisé et délai plus de X heures
 
 
-async def wait_for_celery_result(task_id: str, timeout: int = 60, poll_interval: int = 0.5):
+async def wait_for_celery_result(task_id: str, timeout: int = 60, poll_interval: float = 0.5):
     """
     Attend un résultat Celery de manière asynchrone (avec timeout).
     """

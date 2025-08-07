@@ -81,6 +81,7 @@ class AssetService:
                         Token.change_7d,
                         Token.change_30d,
                         Token.change_1y,
+                        Token.rank,
                     )
                 )
             )

@@ -42,6 +42,7 @@ class TokenPublicAsset(SQLModel):
     change_7d: float
     change_30d: float
     change_1y: float
+    rank: int
 
 
 class TokenId(SQLModel):
